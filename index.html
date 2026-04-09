@@ -64,20 +64,30 @@
         }
       }, 8000);
     </script>
-    <script type="module">
-      import "/src/main.tsx";
-    </script>
-    <script type="module">
-      // Fallback if the absolute path fails
-      setTimeout(function() {
-        if (!window.__APP_INITIALIZED__) {
-          console.log("Absolute path failed, trying relative path...");
-          var s = document.createElement('script');
-          s.type = 'module';
-          s.src = './src/main.tsx';
-          document.body.appendChild(s);
+    <script>
+      window.addEventListener('error', function(e) {
+        if (e.target.tagName === 'SCRIPT') {
+          console.error('Failed to load script:', e.target.src);
+          var display = document.getElementById('error-display');
+          if (display) {
+            display.innerHTML = "Failed to load application files.<br><small>This is usually a network issue. Please try 'Open in New Tab'.</small>";
+            display.style.display = 'block';
+          }
         }
-      }, 2000);
+      }, true);
+    </script>
+    <script type="module" src="./src/main.tsx" onload="window.__SCRIPT_LOADED__=true"></script>
+    <script>
+      setTimeout(function() {
+        if (!window.__SCRIPT_LOADED__) {
+          console.error('Script tag failed to load main.tsx');
+          var display = document.getElementById('error-display');
+          if (display) {
+            display.innerHTML += "<br><b>Technical Detail:</b> Main script failed to load. This usually means the browser blocked the connection or the file is missing.";
+            display.style.display = 'block';
+          }
+        }
+      }, 5000);
     </script>
   </body>
 </html>

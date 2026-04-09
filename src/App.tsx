@@ -887,6 +887,7 @@ const OrdersView = () => {
 // --- Main App ---
 
 export default function App() {
+  console.log("App.tsx: Rendering App component, loading:", useAuth().loading);
   const [view, setView] = useState('home');
   const { loading } = useAuth();
 

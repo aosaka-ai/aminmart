@@ -28,8 +28,15 @@ if (window.location.search.includes('clear=true')) {
   console.log("main.tsx: Clear cache requested via URL");
   localStorage.clear();
   sessionStorage.clear();
-  window.history.replaceState({}, document.title, window.location.pathname);
-  window.location.reload();
+  // Use a flag to avoid infinite reload if the URL doesn't change fast enough
+  if (!sessionStorage.getItem('just_cleared')) {
+    sessionStorage.setItem('just_cleared', 'true');
+    window.history.replaceState({}, document.title, window.location.pathname);
+    window.location.reload();
+  } else {
+    sessionStorage.removeItem('just_cleared');
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
 }
 
 console.log("main.tsx: Starting initialization...");
