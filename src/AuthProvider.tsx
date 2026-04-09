@@ -29,34 +29,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        // Fetch or create profile
-        let userProfile = await getDocument<UserProfile>('users', user.uid);
-        if (!userProfile) {
-          const newProfile: UserProfile = {
-            uid: user.uid,
-            email: user.email || undefined,
-            displayName: user.displayName || undefined,
-            role: user.email === 'a.osaka@gmail.com' ? 'admin' : 'customer',
-            addresses: []
-          };
-          await createDocument('users', newProfile, user.uid);
-          userProfile = newProfile;
-        }
-        setProfile(userProfile);
-
-        // Listen for real-time profile updates
-        const profileUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
-          if (doc.exists()) {
-            setProfile({ ...(doc.data() as UserProfile), uid: doc.id });
+      try {
+        setUser(user);
+        if (user) {
+          // Fetch or create profile
+          let userProfile = await getDocument<UserProfile>('users', user.uid);
+          if (!userProfile) {
+            const newProfile: UserProfile = {
+              uid: user.uid,
+              email: user.email || undefined,
+              displayName: user.displayName || undefined,
+              role: user.email === 'a.osaka@gmail.com' ? 'admin' : 'customer',
+              addresses: []
+            };
+            await createDocument('users', newProfile, user.uid);
+            userProfile = newProfile;
           }
-        });
-        return () => profileUnsubscribe();
-      } else {
-        setProfile(null);
+          setProfile(userProfile);
+
+          // Listen for real-time profile updates
+          const profileUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
+            if (doc.exists()) {
+              setProfile({ ...(doc.data() as UserProfile), uid: doc.id });
+            }
+          });
+          return () => profileUnsubscribe();
+        } else {
+          setProfile(null);
+        }
+      } catch (error) {
+        console.error('Auth state change error:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
