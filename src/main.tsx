@@ -33,6 +33,7 @@ if (window.location.search.includes('clear=true')) {
 }
 
 console.log("main.tsx: Starting initialization...");
+(window as any).__APP_INITIALIZED__ = true;
 console.log("main.tsx: Is in iframe:", window.self !== window.top);
 
 if (!rootElement) {

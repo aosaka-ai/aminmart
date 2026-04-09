@@ -433,13 +433,13 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Payment Method</label>
                 <Select value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)}>
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue placeholder="Select payment" />
+                  <SelectTrigger className="rounded-xl h-12 border-gray-200 bg-white px-4 flex items-center justify-between">
+                    <SelectValue className="text-sm text-gray-700" placeholder="Select payment" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="visa">Visa / Mastercard</SelectItem>
-                    <SelectItem value="instapay">InstaPay (Secure)</SelectItem>
-                    <SelectItem value="cash">Cash on Delivery</SelectItem>
+                  <SelectContent className="bg-white border border-gray-200 shadow-lg rounded-xl z-[100]">
+                    <SelectItem value="visa" className="cursor-pointer hover:bg-green-50">Visa / Mastercard</SelectItem>
+                    <SelectItem value="instapay" className="cursor-pointer hover:bg-green-50">InstaPay (Secure)</SelectItem>
+                    <SelectItem value="cash" className="cursor-pointer hover:bg-green-50">Cash on Delivery</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -613,16 +613,20 @@ const AdminView = () => {
               <Input type="number" placeholder="Price" value={newProd.price} onChange={e => setNewProd({...newProd, price: parseFloat(e.target.value)})} />
               <Input type="number" placeholder="Stock" value={newProd.stock} onChange={e => setNewProd({...newProd, stock: parseInt(e.target.value)})} />
               <Select value={newProd.categoryId || ""} onValueChange={v => setNewProd({...newProd, categoryId: v})}>
-                <SelectTrigger className="w-full bg-white">
-                  <SelectValue placeholder={loadingData ? "Loading categories..." : "Select Category"} />
+                <SelectTrigger className="w-full bg-white h-10 border-gray-200 rounded-lg px-3 flex items-center justify-between">
+                  <SelectValue className="text-sm text-gray-700" placeholder={loadingData ? "Loading..." : "Select Category"} />
                 </SelectTrigger>
-                <SelectContent position="popper" className="z-[100]">
+                <SelectContent position="popper" className="z-[100] bg-white border border-gray-200 shadow-lg rounded-lg">
                   {categories.length === 0 ? (
                     <div className="p-4 text-center text-sm text-gray-500">
-                      No categories found. Please add a category first in the Categories tab.
+                      No categories found.
                     </div>
                   ) : (
-                    categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)
+                    categories.map(c => (
+                      <SelectItem key={c.id} value={c.id} className="cursor-pointer hover:bg-green-50">
+                        {c.name}
+                      </SelectItem>
+                    ))
                   )}
                 </SelectContent>
               </Select>

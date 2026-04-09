@@ -64,7 +64,21 @@
         }
       }, 8000);
     </script>
-    <script type="module" src="./src/main.tsx"></script>
+    <script type="module">
+      import "/src/main.tsx";
+    </script>
+    <script type="module">
+      // Fallback if the absolute path fails
+      setTimeout(function() {
+        if (!window.__APP_INITIALIZED__) {
+          console.log("Absolute path failed, trying relative path...");
+          var s = document.createElement('script');
+          s.type = 'module';
+          s.src = './src/main.tsx';
+          document.body.appendChild(s);
+        }
+      }, 2000);
+    </script>
   </body>
 </html>
 
