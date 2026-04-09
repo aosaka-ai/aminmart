@@ -50,7 +50,7 @@ import { collection, onSnapshot, query, orderBy, Timestamp, where } from 'fireba
 import { db } from './firebase';
 import { Category, Product, Order } from './types';
 import { createDocument, updateDocument, removeDocument, uploadFile } from './lib/firebase-utils';
-import { Camera, Edit2, Loader2 } from 'lucide-react';
+import { Camera, Edit2, Loader2, RefreshCw } from 'lucide-react';
 
 const CURRENCY = 'EGP';
 
@@ -82,6 +82,10 @@ const Navbar = ({ setView, currentView }: { setView: (v: string) => void, curren
             {profile && (
               <button onClick={() => setView('orders')} className={`text-sm font-medium transition-colors ${currentView === 'orders' ? 'text-green-600' : 'text-gray-600 hover:text-green-600'}`}>My Orders</button>
             )}
+            <button onClick={() => window.location.reload()} className="text-sm font-medium text-gray-400 hover:text-green-600 flex items-center gap-1">
+              <RefreshCw size={14} />
+              Refresh
+            </button>
           </div>
 
           <div className="flex items-center gap-3">
@@ -473,9 +477,20 @@ const AdminView = () => {
     const unsubCat = onSnapshot(collection(db, 'categories'), (snap) => {
       setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
       setLoadingData(false);
+    }, (err) => {
+      console.error("Categories snapshot error:", err);
+      setLoadingData(false);
     });
-    const unsubProd = onSnapshot(collection(db, 'products'), (snap) => setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product))));
-    const unsubOrders = onSnapshot(query(collection(db, 'orders'), orderBy('createdAt', 'desc')), (snap) => setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
+    const unsubProd = onSnapshot(collection(db, 'products'), (snap) => {
+      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
+    }, (err) => {
+      console.error("Products snapshot error:", err);
+    });
+    const unsubOrders = onSnapshot(query(collection(db, 'orders'), orderBy('createdAt', 'desc')), (snap) => {
+      setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)));
+    }, (err) => {
+      console.error("Orders snapshot error:", err);
+    });
     return () => { unsubCat(); unsubProd(); unsubOrders(); };
   }, []);
 
@@ -541,21 +556,51 @@ const AdminView = () => {
     toast.success("Order status updated");
   };
 
+  const clearAllProducts = async () => {
+    if (!confirm("Are you sure you want to delete ALL products? This cannot be undone.")) return;
+    const toastId = toast.loading("Deleting products...");
+    try {
+      for (const p of products) {
+        await removeDocument('products', p.id);
+      }
+      toast.success("All products deleted", { id: toastId });
+    } catch (err) {
+      toast.error("Failed to delete products", { id: toastId });
+    }
+  };
+
+  const clearAllCategories = async () => {
+    if (!confirm("Are you sure you want to delete ALL categories? This cannot be undone.")) return;
+    const toastId = toast.loading("Deleting categories...");
+    try {
+      for (const c of categories) {
+        await removeDocument('categories', c.id);
+      }
+      toast.success("All categories deleted", { id: toastId });
+    } catch (err) {
+      toast.error("Failed to delete categories", { id: toastId });
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold text-gray-900">Admin Dashboard</h2>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <Badge variant="outline" className="px-4 py-1">Total Sales: {CURRENCY} {orders.reduce((s, o) => s + o.total, 0).toFixed(2)}</Badge>
           <Badge variant="outline" className="px-4 py-1">Orders: {orders.length}</Badge>
+          <Badge variant="secondary" className="px-4 py-1 bg-blue-50 text-blue-700 border-blue-100">
+            Storage: Free Tier (5GB)
+          </Badge>
         </div>
       </div>
 
       <Tabs defaultValue="products" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 rounded-xl p-1 bg-gray-100">
+        <TabsList className="grid w-full grid-cols-4 rounded-xl p-1 bg-gray-100">
           <TabsTrigger value="products" className="rounded-lg">Inventory</TabsTrigger>
           <TabsTrigger value="categories" className="rounded-lg">Categories</TabsTrigger>
           <TabsTrigger value="orders" className="rounded-lg">Orders</TabsTrigger>
+          <TabsTrigger value="maintenance" className="rounded-lg">Maintenance</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="space-y-6 pt-6">
@@ -568,10 +613,10 @@ const AdminView = () => {
               <Input type="number" placeholder="Price" value={newProd.price} onChange={e => setNewProd({...newProd, price: parseFloat(e.target.value)})} />
               <Input type="number" placeholder="Stock" value={newProd.stock} onChange={e => setNewProd({...newProd, stock: parseInt(e.target.value)})} />
               <Select value={newProd.categoryId || ""} onValueChange={v => setNewProd({...newProd, categoryId: v})}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full bg-white">
                   <SelectValue placeholder={loadingData ? "Loading categories..." : "Select Category"} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="z-[100]">
                   {categories.length === 0 ? (
                     <div className="p-4 text-center text-sm text-gray-500">
                       No categories found. Please add a category first in the Categories tab.
@@ -740,6 +785,32 @@ const AdminView = () => {
             </Card>
           ))}
         </TabsContent>
+
+        <TabsContent value="maintenance" className="pt-6">
+          <Card className="border-red-100 bg-red-50/30">
+            <CardHeader>
+              <CardTitle className="text-red-800">System Maintenance</CardTitle>
+              <CardDescription>Dangerous operations. Use with caution.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-red-100 shadow-sm">
+                <div>
+                  <h4 className="font-bold text-gray-900">Clear All Products</h4>
+                  <p className="text-sm text-gray-500">Permanently delete all products from the database.</p>
+                </div>
+                <Button variant="destructive" onClick={clearAllProducts}>Delete All Products</Button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-red-100 shadow-sm">
+                <div>
+                  <h4 className="font-bold text-gray-900">Clear All Categories</h4>
+                  <p className="text-sm text-gray-500">Permanently delete all categories from the database.</p>
+                </div>
+                <Button variant="destructive" onClick={clearAllCategories}>Delete All Categories</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -849,6 +920,18 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      <footer className="max-w-7xl mx-auto px-4 py-8 border-t border-gray-100 mt-auto">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-500">
+          <p>© 2026 AminMart. All rights reserved.</p>
+          <button 
+            onClick={() => { localStorage.clear(); sessionStorage.clear(); window.location.reload(); }} 
+            className="hover:text-green-600 underline transition-colors"
+          >
+            Clear Cache & Force Refresh
+          </button>
+        </div>
+      </footer>
 
       <Toaster position="bottom-right" />
     </div>

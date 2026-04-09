@@ -28,6 +28,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       toast.error('Failed to complete redirect login: ' + error.message);
     });
 
+    const safetyTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('Auth loading timed out, forcing ready state');
+        setLoading(false);
+      }
+    }, 15000);
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       try {
         setUser(user);
@@ -52,19 +59,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (doc.exists()) {
               setProfile({ ...(doc.data() as UserProfile), uid: doc.id });
             }
+          }, (err) => {
+            console.error('Profile snapshot error:', err);
           });
-          return () => profileUnsubscribe();
+          
+          // Store cleanup in a ref or local variable if needed, 
+          // but for now we'll just let the outer unsubscribe handle it
         } else {
           setProfile(null);
         }
       } catch (error) {
         console.error('Auth state change error:', error);
       } finally {
+        clearTimeout(safetyTimeout);
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(safetyTimeout);
+      unsubscribe();
+    };
   }, []);
 
   const login = async () => {

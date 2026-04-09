@@ -141,8 +141,14 @@ export async function uploadFile(file: File, path: string): Promise<string> {
     const snapshot = await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(snapshot.ref);
     return downloadURL;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error uploading file:', error);
+    if (error.code === 'storage/unauthorized') {
+      throw new Error('Permission denied. Please ensure Firebase Storage is enabled and rules are set to allow uploads.');
+    }
+    if (error.code === 'storage/quota-exceeded') {
+      throw new Error('Storage quota exceeded. Please check your Firebase plan.');
+    }
     throw error;
   }
 }

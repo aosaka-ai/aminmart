@@ -27,33 +27,20 @@
         sessionStorage.clear();
         window.location.reload(true);
       };
-      console.log("HTML loaded at: " + window.location.href);
-      console.log("Attempting to load main script from: ./src/main.tsx");
-      window.onerror = function(msg, url, line, col, error) {
-        var display = document.getElementById('error-display');
-        if (display) {
-          display.innerText = "Error: " + msg + "\nAt: " + url + ":" + line;
-          display.style.display = 'block';
-        }
-        console.error(msg, url, line, col, error);
-      };
-      // Check if the main script loads
+      
+      // Safety timeout to show help if it hangs
       setTimeout(function() {
         var root = document.getElementById('root');
         if (root && root.innerHTML.includes('Preparing your fresh groceries...')) {
           var display = document.getElementById('error-display');
           if (display) {
-            display.innerHTML = "The application is taking longer than expected to load.<br><br>" +
-              "<strong>Possible reasons:</strong><br>" +
-              "1. Slow internet connection.<br>" +
-              "2. Script path error (check if 'dist' folder is deployed correctly).<br>" +
-              "3. Browser incompatibility (try updating your browser).<br><br>" +
-              "<small>Current Path: " + window.location.pathname + "</small>";
+            display.innerHTML = "Taking longer than expected...<br><small>Try clearing cache or refreshing.</small>";
+            display.style.display = 'block';
             var btn = document.getElementById('clear-cache-btn');
             if (btn) btn.style.display = 'block';
           }
         }
-      }, 10000);
+      }, 15000);
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

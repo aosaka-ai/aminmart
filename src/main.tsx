@@ -7,6 +7,14 @@ import { CartProvider } from './CartProvider';
 
 const rootElement = document.getElementById('root');
 
+// Safety: Clear cache if requested via URL
+if (window.location.search.includes('clear=true')) {
+  localStorage.clear();
+  sessionStorage.clear();
+  window.history.replaceState({}, document.title, window.location.pathname);
+  window.location.reload();
+}
+
 console.log("main.tsx: Starting initialization...");
 
 if (!rootElement) {
