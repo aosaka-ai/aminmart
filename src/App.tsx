@@ -244,7 +244,7 @@ const HomeView = () => {
               onClick={() => setSelectedCategory(cat.id)}
               className="rounded-full whitespace-nowrap flex items-center gap-2"
             >
-              {cat.imageUrl && <img src={cat.imageUrl} className="w-4 h-4 rounded-full object-cover" alt="" />}
+              {cat.imageUrl && <img src={cat.imageUrl} className="w-4 h-4 rounded-full object-cover" alt="" referrerPolicy="no-referrer" />}
               {cat.name}
             </Button>
           ))}
@@ -253,7 +253,7 @@ const HomeView = () => {
 
       {/* Product Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence>
           {filteredProducts.map(product => (
             <div key={product.id}>
               <ProductCard product={product} />
@@ -467,9 +467,13 @@ const AdminView = () => {
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
-    const unsubCat = onSnapshot(collection(db, 'categories'), (snap) => setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category))));
+    const unsubCat = onSnapshot(collection(db, 'categories'), (snap) => {
+      setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
+      setLoadingData(false);
+    });
     const unsubProd = onSnapshot(collection(db, 'products'), (snap) => setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product))));
     const unsubOrders = onSnapshot(query(collection(db, 'orders'), orderBy('createdAt', 'desc')), (snap) => setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
     return () => { unsubCat(); unsubProd(); unsubOrders(); };
@@ -563,10 +567,18 @@ const AdminView = () => {
               <Input placeholder="Product Name" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})} />
               <Input type="number" placeholder="Price" value={newProd.price} onChange={e => setNewProd({...newProd, price: parseFloat(e.target.value)})} />
               <Input type="number" placeholder="Stock" value={newProd.stock} onChange={e => setNewProd({...newProd, stock: parseInt(e.target.value)})} />
-              <Select value={newProd.categoryId} onValueChange={v => setNewProd({...newProd, categoryId: v})}>
-                <SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger>
+              <Select value={newProd.categoryId || ""} onValueChange={v => setNewProd({...newProd, categoryId: v})}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={loadingData ? "Loading categories..." : "Select Category"} />
+                </SelectTrigger>
                 <SelectContent>
-                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {categories.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      No categories found. Please add a category first in the Categories tab.
+                    </div>
+                  ) : (
+                    categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)
+                  )}
                 </SelectContent>
               </Select>
               <Input placeholder="Unit (e.g. kg, pc)" value={newProd.unit} onChange={e => setNewProd({...newProd, unit: e.target.value})} />
