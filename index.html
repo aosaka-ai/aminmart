@@ -7,24 +7,34 @@
   </head>
   <body>
     <div id="root">
-      <div style="height: 100vh; width: 100%; display: flex; align-items: center; justify-content: center; font-family: sans-serif;">
+      <div style="height: 100vh; width: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; font-family: sans-serif; gap: 10px;">
+        <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #16a34a; border-radius: 50%; animation: spin 1s linear infinite;"></div>
         <p>Loading AminMart...</p>
+        <p id="error-display" style="color: #ef4444; font-size: 12px; max-width: 80%; text-align: center;"></p>
       </div>
+      <style>
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      </style>
     </div>
     <script>
       window.onerror = function(msg, url, line, col, error) {
-        console.error("Global Error: ", msg, " at ", url, ":", line);
-        var root = document.getElementById('root');
-        if (root) {
-          root.innerHTML = '<div style="padding: 20px; color: red; font-family: sans-serif;">' +
-            '<h2>Something went wrong</h2>' +
-            '<p>' + msg + '</p>' +
-            '<p>Check the browser console for more details.</p>' +
-            '</div>';
+        var display = document.getElementById('error-display');
+        if (display) {
+          display.innerText = "Error: " + msg + "\nAt: " + url + ":" + line;
         }
+        console.error(msg, url, line, col, error);
       };
+      // Check if the main script loads
+      setTimeout(function() {
+        if (document.getElementById('root').innerHTML.includes('Loading AminMart...')) {
+          var display = document.getElementById('error-display');
+          if (display) {
+            display.innerText = "The application is taking longer than expected to load. Please check your internet connection or try refreshing.";
+          }
+        }
+      }, 5000);
     </script>
-    <script type="module" src="./src/main.tsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
 

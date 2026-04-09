@@ -5,12 +5,31 @@ import './index.css';
 import { AuthProvider } from './AuthProvider';
 import { CartProvider } from './CartProvider';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <AuthProvider>
-      <CartProvider>
-        <App />
-      </CartProvider>
-    </AuthProvider>
-  </StrictMode>,
-);
+const rootElement = document.getElementById('root');
+
+if (!rootElement) {
+  throw new Error('Failed to find the root element');
+}
+
+try {
+  createRoot(rootElement).render(
+    <StrictMode>
+      <AuthProvider>
+        <CartProvider>
+          <App />
+        </CartProvider>
+      </AuthProvider>
+    </StrictMode>,
+  );
+} catch (error) {
+  console.error('Failed to render the app:', error);
+  rootElement.innerHTML = `
+    <div style="padding: 20px; color: #ef4444; font-family: sans-serif; text-align: center;">
+      <h2 style="margin-bottom: 10px;">Failed to start application</h2>
+      <p style="font-size: 14px;">${error instanceof Error ? error.message : String(error)}</p>
+      <button onclick="window.location.reload()" style="margin-top: 20px; padding: 8px 16px; background: #16a34a; color: white; border: none; border-radius: 6px; cursor: pointer;">
+        Try Refreshing
+      </button>
+    </div>
+  `;
+}
