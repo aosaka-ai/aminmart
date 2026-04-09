@@ -1,0 +1,105 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: categories
+// Fields:
+//   - name: string (required)
+//   - slug: string (required)
+//   - icon: string (optional)
+//
+// Collection: products
+// Fields:
+//   - name: string (required)
+//   - description: string (optional)
+//   - price: number (required, positive)
+//   - categoryId: string (required)
+//   - stock: number (required, non-negative)
+//   - imageUrl: string (optional)
+//   - isHotDeal: bool (optional)
+//   - unit: string (optional)
+//
+// Collection: users
+// Fields:
+//   - uid: string (required)
+//   - email: string (optional)
+//   - phoneNumber: string (optional)
+//   - displayName: string (optional)
+//   - role: string (required, 'admin' | 'customer')
+//   - addresses: list (optional)
+//
+// Collection: orders
+// Fields:
+//   - userId: string (required)
+//   - items: list (required)
+//   - total: number (required, positive)
+//   - status: string (required, 'pending' | 'confirmed' | 'out-for-delivery' | 'delivered')
+//   - paymentMethod: string (required, 'visa' | 'instapay' | 'cash')
+//   - deliveryAddress: string (required)
+//   - createdAt: timestamp (required)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "a.osaka@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isPositive(val) {
+      return val is number && val > 0;
+    }
+
+    function isNonNegative(val) {
+      return val is number && val >= 0;
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId && 
+                    request.resource.data.role == 'customer';
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow update: if isAdmin(); // Only admin can update status
+      allow delete: if false;
+    }
+  }
+}
