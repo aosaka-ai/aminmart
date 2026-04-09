@@ -22,10 +22,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Handle redirect result
-    getRedirectResult(auth).catch((error) => {
+    // Handle redirect result with a timeout
+    const redirectTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('Redirect check taking too long, proceeding...');
+      }
+    }, 5000);
+
+    getRedirectResult(auth).then(() => {
+      clearTimeout(redirectTimeout);
+    }).catch((error) => {
+      clearTimeout(redirectTimeout);
       console.error('Redirect login error:', error);
-      toast.error('Failed to complete redirect login: ' + error.message);
+      if (error.code !== 'auth/network-request-failed') {
+        toast.error('Failed to complete redirect login: ' + error.message);
+      }
     });
 
     const safetyTimeout = setTimeout(() => {
@@ -33,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn('Auth loading timed out, forcing ready state');
         setLoading(false);
       }
-    }, 15000);
+    }, 8000);
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       try {
@@ -101,6 +112,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await signInWithRedirect(auth, provider);
       } else if (error.code === 'auth/unauthorized-domain') {
         toast.error('This domain is not authorized in Firebase. Please add aosaka-ai.github.io to authorized domains in Firebase Console.', { id: toastId });
+      } else if (error.code === 'auth/network-request-failed') {
+        toast.error('Network error: Firebase could not be reached. This is often caused by ad-blockers, VPNs, or network restrictions. Please disable ad-blockers and try again.', { id: toastId, duration: 6000 });
       } else {
         toast.error('Failed to login: ' + (error.message || 'Unknown error'), { id: toastId });
       }

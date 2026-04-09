@@ -14,6 +14,9 @@
         </div>
         <p style="margin-top: 20px; font-weight: 600; color: #374151; letter-spacing: -0.01em;">AminMart</p>
         <p style="margin-top: -10px; font-size: 13px; color: #6b7280;">Preparing your fresh groceries...</p>
+        <div style="margin-top: 10px;">
+          <a href="" target="_blank" id="open-new-tab" style="font-size: 12px; color: #16a34a; text-decoration: underline;">Open in New Tab (Recommended)</a>
+        </div>
         <p id="error-display" style="margin-top: 20px; color: #ef4444; font-size: 12px; max-width: 80%; text-align: center; display: none;"></p>
         <button id="clear-cache-btn" style="margin-top: 20px; padding: 8px 16px; background: #374151; color: white; border: none; border-radius: 6px; cursor: pointer; display: none; font-size: 12px;">Clear Browser Data & Reload</button>
       </div>
@@ -22,6 +25,8 @@
       </style>
     </div>
     <script>
+      document.getElementById('open-new-tab').href = window.location.href;
+      
       document.getElementById('clear-cache-btn').onclick = function() {
         localStorage.clear();
         sessionStorage.clear();
@@ -34,15 +39,32 @@
         if (root && root.innerHTML.includes('Preparing your fresh groceries...')) {
           var display = document.getElementById('error-display');
           if (display) {
-            display.innerHTML = "Taking longer than expected...<br><small>Try clearing cache or refreshing.</small>";
+            display.innerHTML = "Taking longer than expected...<br><small>This might be a network issue or browser cache problem.</small>";
             display.style.display = 'block';
             var btn = document.getElementById('clear-cache-btn');
             if (btn) btn.style.display = 'block';
+            
+            // Add a manual start button if script loading failed
+            var manualBtn = document.createElement('button');
+            manualBtn.innerText = "Try Manual Start";
+            manualBtn.style.marginTop = "10px";
+            manualBtn.style.padding = "8px 16px";
+            manualBtn.style.background = "#16a34a";
+            manualBtn.style.color = "white";
+            manualBtn.style.border = "none";
+            manualBtn.style.borderRadius = "6px";
+            manualBtn.style.cursor = "pointer";
+            manualBtn.style.fontSize = "12px";
+            manualBtn.onclick = function() {
+              window.location.href = window.location.pathname + "?clear=true";
+            };
+            display.appendChild(document.createElement('br'));
+            display.appendChild(manualBtn);
           }
         }
-      }, 15000);
+      }, 8000);
     </script>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
 

@@ -97,10 +97,20 @@ export async function getCollection<T>(path: string, queryConstraints: any[] = [
   try {
     const colRef = collection(db, path);
     const q = query(colRef, ...queryConstraints);
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+    
+    // Add a 10s timeout
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timed out')), 10000)
+    );
+    
+    const querySnapshot = await Promise.race([
+      getDocs(q),
+      timeoutPromise
+    ]) as any;
+
+    return querySnapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as T));
   } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, path);
+    console.error('Error getting collection:', error);
     return [];
   }
 }

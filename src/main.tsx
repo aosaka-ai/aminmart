@@ -7,8 +7,25 @@ import { CartProvider } from './CartProvider';
 
 const rootElement = document.getElementById('root');
 
+// Global error handler for early crashes
+window.addEventListener('error', (event) => {
+  console.error('Global error caught:', event.error);
+  if (rootElement && rootElement.innerHTML.includes('Preparing your fresh groceries...')) {
+    rootElement.innerHTML = `
+      <div style="padding: 20px; color: #ef4444; font-family: sans-serif; text-align: center;">
+        <h2 style="margin-bottom: 10px;">Critical Error</h2>
+        <p style="font-size: 14px;">${event.message}</p>
+        <button onclick="window.location.reload()" style="margin-top: 20px; padding: 8px 16px; background: #16a34a; color: white; border: none; border-radius: 6px; cursor: pointer;">
+          Try Refreshing
+        </button>
+      </div>
+    `;
+  }
+});
+
 // Safety: Clear cache if requested via URL
 if (window.location.search.includes('clear=true')) {
+  console.log("main.tsx: Clear cache requested via URL");
   localStorage.clear();
   sessionStorage.clear();
   window.history.replaceState({}, document.title, window.location.pathname);
@@ -16,6 +33,7 @@ if (window.location.search.includes('clear=true')) {
 }
 
 console.log("main.tsx: Starting initialization...");
+console.log("main.tsx: Is in iframe:", window.self !== window.top);
 
 if (!rootElement) {
   console.error("main.tsx: Root element not found!");
