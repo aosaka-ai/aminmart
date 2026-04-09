@@ -7,7 +7,8 @@
       "properties": {
         "name": { "type": "string", "description": "Category name" },
         "slug": { "type": "string", "description": "URL friendly name" },
-        "icon": { "type": "string", "description": "Lucide icon name" }
+        "icon": { "type": "string", "description": "Lucide icon name" },
+        "imageUrl": { "type": "string", "description": "Category image URL" }
       },
       "required": ["name", "slug"]
     },

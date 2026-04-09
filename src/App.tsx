@@ -49,7 +49,10 @@ import { toast } from 'sonner';
 import { collection, onSnapshot, query, orderBy, Timestamp, where } from 'firebase/firestore';
 import { db } from './firebase';
 import { Category, Product, Order } from './types';
-import { createDocument, updateDocument, removeDocument } from './lib/firebase-utils';
+import { createDocument, updateDocument, removeDocument, uploadFile } from './lib/firebase-utils';
+import { Camera, Edit2, Loader2 } from 'lucide-react';
+
+const CURRENCY = 'EGP';
 
 // --- Components ---
 
@@ -151,7 +154,7 @@ const ProductCard = ({ product }: { product: Product }) => {
 
       <div className="mt-4 flex items-center justify-between">
         <div>
-          <span className="text-lg font-bold text-green-600">${product.price.toFixed(2)}</span>
+          <span className="text-lg font-bold text-green-600">{CURRENCY} {product.price.toFixed(2)}</span>
           {product.unit && <span className="text-[10px] text-gray-400 ml-1">/ {product.unit}</span>}
         </div>
         <Button 
@@ -239,8 +242,9 @@ const HomeView = () => {
               key={cat.id}
               variant={selectedCategory === cat.id ? 'default' : 'outline'} 
               onClick={() => setSelectedCategory(cat.id)}
-              className="rounded-full whitespace-nowrap"
+              className="rounded-full whitespace-nowrap flex items-center gap-2"
             >
+              {cat.imageUrl && <img src={cat.imageUrl} className="w-4 h-4 rounded-full object-cover" alt="" />}
               {cat.name}
             </Button>
           ))}
@@ -355,7 +359,7 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-semibold text-gray-900">{item.name}</h4>
-                      <p className="text-xs text-gray-500">${item.price.toFixed(2)} / {item.unit || 'pc'}</p>
+                      <p className="text-xs text-gray-500">{CURRENCY} {item.price.toFixed(2)} / {item.unit || 'pc'}</p>
                     </div>
                     <Button variant="ghost" size="icon" className="text-gray-400 hover:text-red-500" onClick={() => removeItem(item.id)}>
                       <Trash2 size={18} />
@@ -367,7 +371,7 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
                       <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
                       <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-green-600">+</button>
                     </div>
-                    <span className="font-bold text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
+                    <span className="font-bold text-gray-900">{CURRENCY} {(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -384,7 +388,7 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
           <CardContent className="space-y-4">
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Subtotal</span>
-              <span className="font-medium">${total.toFixed(2)}</span>
+              <span className="font-medium">{CURRENCY} {total.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Delivery Fee</span>
@@ -393,7 +397,7 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
             <Separator />
             <div className="flex justify-between text-lg font-bold">
               <span>Total</span>
-              <span className="text-green-600">${total.toFixed(2)}</span>
+              <span className="text-green-600">{CURRENCY} {total.toFixed(2)}</span>
             </div>
 
             <div className="space-y-4 pt-4">
@@ -443,7 +447,7 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
               disabled={isCheckingOut}
               onClick={handleCheckout}
             >
-              {isCheckingOut ? "Processing..." : `Checkout $${total.toFixed(2)}`}
+              {isCheckingOut ? "Processing..." : `Checkout ${CURRENCY} ${total.toFixed(2)}`}
             </Button>
           </CardFooter>
         </Card>
@@ -458,8 +462,11 @@ const AdminView = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   
   // Form states
-  const [newCat, setNewCat] = useState({ name: '', slug: '', icon: '' });
-  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, stock: 0, categoryId: '', unit: 'pc' });
+  const [newCat, setNewCat] = useState<Partial<Category>>({ name: '', slug: '', icon: '', imageUrl: '' });
+  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
+  const [editingCat, setEditingCat] = useState<Category | null>(null);
+  const [editingProd, setEditingProd] = useState<Product | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const unsubCat = onSnapshot(collection(db, 'categories'), (snap) => setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category))));
@@ -468,18 +475,61 @@ const AdminView = () => {
     return () => { unsubCat(); unsubProd(); unsubOrders(); };
   }, []);
 
-  const handleAddCategory = async () => {
-    if (!newCat.name) return;
-    await createDocument('categories', { ...newCat, slug: newCat.name.toLowerCase().replace(/ /g, '-') });
-    setNewCat({ name: '', slug: '', icon: '' });
-    toast.success("Category added");
+  const handleImageUpload = async (file: File, path: string) => {
+    setUploading(true);
+    try {
+      const url = await uploadFile(file, path);
+      return url;
+    } catch (error) {
+      toast.error("Failed to upload image");
+      return null;
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleAddProduct = async () => {
+  const handleSaveCategory = async () => {
+    if (!newCat.name) return;
+    const data = { 
+      ...newCat, 
+      slug: newCat.name.toLowerCase().replace(/ /g, '-') 
+    };
+    
+    if (editingCat) {
+      await updateDocument('categories', editingCat.id, data);
+      toast.success("Category updated");
+    } else {
+      await createDocument('categories', data);
+      toast.success("Category added");
+    }
+    
+    setNewCat({ name: '', slug: '', icon: '', imageUrl: '' });
+    setEditingCat(null);
+  };
+
+  const handleSaveProduct = async () => {
     if (!newProd.name || !newProd.categoryId) return;
-    await createDocument('products', newProd);
-    setNewProd({ name: '', price: 0, stock: 0, categoryId: '', unit: 'pc' });
-    toast.success("Product added");
+    
+    if (editingProd) {
+      await updateDocument('products', editingProd.id, newProd);
+      toast.success("Product updated");
+    } else {
+      await createDocument('products', newProd);
+      toast.success("Product added");
+    }
+    
+    setNewProd({ name: '', price: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
+    setEditingProd(null);
+  };
+
+  const startEditCategory = (cat: Category) => {
+    setEditingCat(cat);
+    setNewCat({ name: cat.name, slug: cat.slug, icon: cat.icon, imageUrl: cat.imageUrl });
+  };
+
+  const startEditProduct = (prod: Product) => {
+    setEditingProd(prod);
+    setNewProd({ ...prod });
   };
 
   const updateOrderStatus = async (orderId: string, status: string) => {
@@ -492,7 +542,7 @@ const AdminView = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold text-gray-900">Admin Dashboard</h2>
         <div className="flex gap-4">
-          <Badge variant="outline" className="px-4 py-1">Total Sales: ${orders.reduce((s, o) => s + o.total, 0).toFixed(2)}</Badge>
+          <Badge variant="outline" className="px-4 py-1">Total Sales: {CURRENCY} {orders.reduce((s, o) => s + o.total, 0).toFixed(2)}</Badge>
           <Badge variant="outline" className="px-4 py-1">Orders: {orders.length}</Badge>
         </div>
       </div>
@@ -507,7 +557,7 @@ const AdminView = () => {
         <TabsContent value="products" className="space-y-6 pt-6">
           <Card className="border-gray-100 shadow-sm">
             <CardHeader>
-              <CardTitle>Add New Product</CardTitle>
+              <CardTitle>{editingProd ? 'Edit Product' : 'Add New Product'}</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input placeholder="Product Name" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})} />
@@ -520,7 +570,39 @@ const AdminView = () => {
                 </SelectContent>
               </Select>
               <Input placeholder="Unit (e.g. kg, pc)" value={newProd.unit} onChange={e => setNewProd({...newProd, unit: e.target.value})} />
-              <Button onClick={handleAddProduct} className="bg-green-600 hover:bg-green-700">Add Product</Button>
+              
+              <div className="flex items-center gap-2">
+                <Input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  id="prod-img" 
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const url = await handleImageUpload(file, 'products');
+                      if (url) setNewProd({...newProd, imageUrl: url});
+                    }
+                  }}
+                />
+                <label htmlFor="prod-img" className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors text-sm font-medium">
+                  {uploading ? <Loader2 className="animate-spin" size={16} /> : <Camera size={16} />}
+                  {newProd.imageUrl ? 'Change Image' : 'Upload Image'}
+                </label>
+                {newProd.imageUrl && <img src={newProd.imageUrl} className="w-10 h-10 rounded object-cover" alt="Preview" />}
+              </div>
+
+              <div className="flex gap-2">
+                <Button onClick={handleSaveProduct} className="bg-green-600 hover:bg-green-700 flex-1">
+                  {editingProd ? 'Update Product' : 'Add Product'}
+                </Button>
+                {editingProd && (
+                  <Button variant="outline" onClick={() => {
+                    setEditingProd(null);
+                    setNewProd({ name: '', price: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
+                  }}>Cancel</Button>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -528,11 +610,15 @@ const AdminView = () => {
             {products.map(p => (
               <Card key={p.id} className="border-gray-100">
                 <CardContent className="p-4 flex justify-between items-center">
-                  <div>
-                    <h4 className="font-bold">{p.name}</h4>
-                    <p className="text-xs text-gray-500">Stock: {p.stock} | ${p.price}</p>
+                  <div className="flex items-center gap-3">
+                    {p.imageUrl && <img src={p.imageUrl} className="w-10 h-10 rounded object-cover" alt={p.name} />}
+                    <div>
+                      <h4 className="font-bold">{p.name}</h4>
+                      <p className="text-xs text-gray-500">Stock: {p.stock} | {CURRENCY} {p.price}</p>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => startEditProduct(p)}><Edit2 size={16} /></Button>
                     <Button variant="ghost" size="icon" className="text-red-500" onClick={() => removeDocument('products', p.id)}><Trash2 size={16} /></Button>
                   </div>
                 </CardContent>
@@ -544,19 +630,57 @@ const AdminView = () => {
         <TabsContent value="categories" className="space-y-6 pt-6">
           <Card className="border-gray-100 shadow-sm">
             <CardHeader>
-              <CardTitle>Add New Category</CardTitle>
+              <CardTitle>{editingCat ? 'Edit Category' : 'Add New Category'}</CardTitle>
             </CardHeader>
-            <CardContent className="flex gap-4">
-              <Input placeholder="Category Name" value={newCat.name} onChange={e => setNewCat({...newCat, name: e.target.value})} />
-              <Button onClick={handleAddCategory} className="bg-green-600 hover:bg-green-700">Add Category</Button>
+            <CardContent className="space-y-4">
+              <div className="flex gap-4">
+                <Input placeholder="Category Name" value={newCat.name} onChange={e => setNewCat({...newCat, name: e.target.value})} />
+                
+                <div className="flex items-center gap-2">
+                  <Input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    id="cat-img" 
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const url = await handleImageUpload(file, 'categories');
+                        if (url) setNewCat({...newCat, imageUrl: url});
+                      }
+                    }}
+                  />
+                  <label htmlFor="cat-img" className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors text-sm font-medium">
+                    {uploading ? <Loader2 className="animate-spin" size={16} /> : <Camera size={16} />}
+                    {newCat.imageUrl ? 'Change Image' : 'Upload Image'}
+                  </label>
+                  {newCat.imageUrl && <img src={newCat.imageUrl} className="w-10 h-10 rounded object-cover" alt="Preview" />}
+                </div>
+
+                <Button onClick={handleSaveCategory} className="bg-green-600 hover:bg-green-700">
+                  {editingCat ? 'Update Category' : 'Add Category'}
+                </Button>
+                {editingCat && (
+                  <Button variant="outline" onClick={() => {
+                    setEditingCat(null);
+                    setNewCat({ name: '', slug: '', icon: '', imageUrl: '' });
+                  }}>Cancel</Button>
+                )}
+              </div>
             </CardContent>
           </Card>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {categories.map(c => (
               <Card key={c.id} className="border-gray-100">
                 <CardContent className="p-4 flex justify-between items-center">
-                  <span className="font-medium">{c.name}</span>
-                  <Button variant="ghost" size="icon" className="text-red-500" onClick={() => removeDocument('categories', c.id)}><Trash2 size={16} /></Button>
+                  <div className="flex items-center gap-3">
+                    {c.imageUrl && <img src={c.imageUrl} className="w-8 h-8 rounded object-cover" alt={c.name} />}
+                    <span className="font-medium">{c.name}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => startEditCategory(c)}><Edit2 size={16} /></Button>
+                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => removeDocument('categories', c.id)}><Trash2 size={16} /></Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -585,12 +709,12 @@ const AdminView = () => {
                 <div className="text-sm space-y-1">
                   <p><strong>Customer ID:</strong> {order.userId}</p>
                   <p><strong>Address:</strong> {order.deliveryAddress}</p>
-                  <p><strong>Total:</strong> ${order.total.toFixed(2)} ({order.paymentMethod})</p>
+                  <p><strong>Total:</strong> {CURRENCY} {order.total.toFixed(2)} ({order.paymentMethod})</p>
                   <div className="pt-2">
                     <p className="font-semibold">Items:</p>
                     <ul className="list-disc list-inside text-xs text-gray-600">
                       {order.items.map((item, idx) => (
-                        <li key={idx}>{item.name} x {item.quantity} (${item.price})</li>
+                        <li key={idx}>{item.name} x {item.quantity} ({CURRENCY} {item.price})</li>
                       ))}
                     </ul>
                   </div>
@@ -657,7 +781,7 @@ const OrdersView = () => {
               <CardContent>
                 <div className="flex justify-between items-end">
                   <div className="text-sm text-gray-600">
-                    {order.items.length} items • Total: <span className="font-bold text-gray-900">${order.total.toFixed(2)}</span>
+                    {order.items.length} items • Total: <span className="font-bold text-gray-900">{CURRENCY} {order.total.toFixed(2)}</span>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-gray-500">
                     <Truck size={14} />

@@ -13,7 +13,8 @@ import {
   Timestamp,
   addDoc
 } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, auth, storage } from '../firebase';
 
 export enum OperationType {
   CREATE = 'create',
@@ -22,6 +23,7 @@ export enum OperationType {
   LIST = 'list',
   GET = 'get',
   WRITE = 'write',
+  UPLOAD = 'upload',
 }
 
 export interface FirestoreErrorInfo {
@@ -120,5 +122,17 @@ export async function removeDocument(path: string, id: string) {
     await deleteDoc(doc(db, path, id));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `${path}/${id}`);
+  }
+}
+
+export async function uploadFile(file: File, path: string): Promise<string> {
+  try {
+    const storageRef = ref(storage, `${path}/${Date.now()}_${file.name}`);
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    return downloadURL;
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    throw error;
   }
 }
