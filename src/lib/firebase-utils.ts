@@ -103,7 +103,7 @@ export async function createDocument(path: string, data: any, id?: string) {
       return docRef.id;
     }
   } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, path);
+    handleFirestoreError(error, OperationType.CREATE, id ? `${path}/${id}` : path);
   }
 }
 
