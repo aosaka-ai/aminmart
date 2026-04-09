@@ -484,8 +484,8 @@ const AdminView = () => {
     try {
       const url = await uploadFile(file, path);
       return url;
-    } catch (error) {
-      toast.error("Failed to upload image");
+    } catch (error: any) {
+      toast.error(`Upload failed: ${error.message || 'Unknown error'}`);
       return null;
     } finally {
       setUploading(false);

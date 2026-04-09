@@ -72,13 +72,23 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 export async function getDocument<T>(path: string, id: string): Promise<T | null> {
   try {
     const docRef = doc(db, path, id);
-    const docSnap = await getDoc(docRef);
+    // Add a 10s timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timed out')), 10000)
+    );
+    
+    const docSnap = await Promise.race([
+      getDoc(docRef),
+      timeoutPromise
+    ]) as any;
+
     if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() } as T;
     }
     return null;
   } catch (error) {
-    handleFirestoreError(error, OperationType.GET, `${path}/${id}`);
+    console.error('Error getting document:', error);
+    // Don't call handleFirestoreError here to avoid infinite loops if it's a connection issue
     return null;
   }
 }

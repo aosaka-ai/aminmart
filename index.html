@@ -15,12 +15,18 @@
         <p style="margin-top: 20px; font-weight: 600; color: #374151; letter-spacing: -0.01em;">AminMart</p>
         <p style="margin-top: -10px; font-size: 13px; color: #6b7280;">Preparing your fresh groceries...</p>
         <p id="error-display" style="margin-top: 20px; color: #ef4444; font-size: 12px; max-width: 80%; text-align: center; display: none;"></p>
+        <button id="clear-cache-btn" style="margin-top: 20px; padding: 8px 16px; background: #374151; color: white; border: none; border-radius: 6px; cursor: pointer; display: none; font-size: 12px;">Clear Browser Data & Reload</button>
       </div>
       <style>
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
       </style>
     </div>
     <script>
+      document.getElementById('clear-cache-btn').onclick = function() {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.reload(true);
+      };
       console.log("HTML loaded at: " + window.location.href);
       console.log("Attempting to load main script from: ./src/main.tsx");
       window.onerror = function(msg, url, line, col, error) {
@@ -43,6 +49,8 @@
               "2. Script path error (check if 'dist' folder is deployed correctly).<br>" +
               "3. Browser incompatibility (try updating your browser).<br><br>" +
               "<small>Current Path: " + window.location.pathname + "</small>";
+            var btn = document.getElementById('clear-cache-btn');
+            if (btn) btn.style.display = 'block';
           }
         }
       }, 10000);
