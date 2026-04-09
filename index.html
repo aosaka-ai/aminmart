@@ -17,10 +17,12 @@
       </style>
     </div>
     <script>
+      console.log("HTML loaded, attempting to load main script...");
       window.onerror = function(msg, url, line, col, error) {
         var display = document.getElementById('error-display');
         if (display) {
           display.innerText = "Error: " + msg + "\nAt: " + url + ":" + line;
+          display.style.display = 'block';
         }
         console.error(msg, url, line, col, error);
       };
@@ -29,12 +31,12 @@
         if (document.getElementById('root').innerHTML.includes('Loading AminMart...')) {
           var display = document.getElementById('error-display');
           if (display) {
-            display.innerText = "The application is taking longer than expected to load. Please check your internet connection or try refreshing.";
+            display.innerText = "The application is taking longer than expected to load. This usually happens if the script path is incorrect or blocked. Please ensure you are deploying the 'dist' folder correctly.";
           }
         }
-      }, 5000);
+      }, 8000);
     </script>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="./src/main.tsx" onload="console.log('Main script loaded successfully')" onerror="document.getElementById('error-display').innerText = 'Failed to load the main script. Please check the file path.'"></script>
   </body>
 </html>
 

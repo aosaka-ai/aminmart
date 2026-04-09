@@ -8,6 +8,9 @@ export default defineConfig(({mode}) => {
   return {
     base: '/aminmart/',
     plugins: [react(), tailwindcss()],
+    build: {
+      target: 'es2015',
+    },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },

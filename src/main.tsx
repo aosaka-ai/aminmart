@@ -7,11 +7,15 @@ import { CartProvider } from './CartProvider';
 
 const rootElement = document.getElementById('root');
 
+console.log("main.tsx: Starting initialization...");
+
 if (!rootElement) {
+  console.error("main.tsx: Root element not found!");
   throw new Error('Failed to find the root element');
 }
 
 try {
+  console.log("main.tsx: Rendering React app...");
   createRoot(rootElement).render(
     <StrictMode>
       <AuthProvider>
