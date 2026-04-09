@@ -11,7 +11,20 @@
         <p>Loading AminMart...</p>
       </div>
     </div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        console.error("Global Error: ", msg, " at ", url, ":", line);
+        var root = document.getElementById('root');
+        if (root) {
+          root.innerHTML = '<div style="padding: 20px; color: red; font-family: sans-serif;">' +
+            '<h2>Something went wrong</h2>' +
+            '<p>' + msg + '</p>' +
+            '<p>Check the browser console for more details.</p>' +
+            '</div>';
+        }
+      };
+    </script>
+    <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
 
