@@ -953,30 +953,50 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Form submission started", { mode, email: formData.email });
+    
+    if (mode === 'register') {
+      // Manual validation to provide better feedback
+      const requiredFields = ['firstName', 'lastName', 'email', 'mobile', 'birthDate', 'password', 'street', 'building', 'city', 'state'];
+      for (const field of requiredFields) {
+        if (!formData[field as keyof typeof formData]) {
+          toast.error(`Please fill in the ${field.replace(/([A-Z])/g, ' $1').toLowerCase()} field.`);
+          return;
+        }
+      }
+    } else {
+      if (!formData.email || !formData.password) {
+        toast.error("Please fill in both email and password.");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       if (mode === 'register') {
         const addressData: Address = {
           label: 'Primary',
-          street: formData.street,
-          building: formData.building,
-          apartment: formData.apartment,
-          floor: formData.floor,
-          city: formData.city,
-          state: formData.state,
-          country: formData.country,
-          latitude: formData.latitude,
-          longitude: formData.longitude,
-          formattedAddress: `${formData.building}, ${formData.street}, ${formData.city}, ${formData.country}`
-        };
+          street: formData.street || '',
+          building: formData.building || '',
+          apartment: formData.apartment || '',
+          floor: formData.floor || '',
+          city: formData.city || '',
+          state: formData.state || '',
+          country: formData.country || 'Egypt',
+          latitude: formData.latitude ?? null,
+          longitude: formData.longitude ?? null,
+          formattedAddress: `${formData.building || ''}, ${formData.street || ''}, ${formData.city || ''}, ${formData.country || 'Egypt'}`
+        } as any;
+        console.log("Registering with address:", addressData);
         await register(formData.email, formData.password, { ...formData, addressData });
         setView('verification');
       } else {
         await loginWithEmail(formData.email, formData.password);
         setView('home');
       }
-    } catch (err) {
-      // Error handled in provider
+    } catch (err: any) {
+      console.error("Form submission error:", err);
+      toast.error(err.message || "An unexpected error occurred during submission");
     } finally {
       setLoading(false);
     }
@@ -995,12 +1015,13 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
           </CardDescription>
         </CardHeader>
         <CardContent className="p-10 space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-4 text-left">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4 text-left">
             {mode === 'register' && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">First Name</label>
                   <Input 
+                    id="firstName"
                     required 
                     placeholder="John" 
                     className="rounded-xl border-gray-100 bg-gray-50/50"
@@ -1011,6 +1032,7 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Last Name</label>
                   <Input 
+                    id="lastName"
                     required 
                     placeholder="Doe" 
                     className="rounded-xl border-gray-100 bg-gray-50/50"
@@ -1024,6 +1046,7 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Email Address</label>
               <Input 
+                id="email"
                 type="email" 
                 required 
                 placeholder="john@example.com" 
@@ -1038,6 +1061,7 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Mobile Number</label>
                   <Input 
+                    id="mobile"
                     required 
                     placeholder="+20 123 456 7890" 
                     className="rounded-xl border-gray-100 bg-gray-50/50"
@@ -1049,6 +1073,7 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Birth Date</label>
                     <Input 
+                      id="birthDate"
                       type="date" 
                       required 
                       className="rounded-xl border-gray-100 bg-gray-50/50"
@@ -1078,6 +1103,7 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Password</label>
               <Input 
+                id="password"
                 type="password" 
                 required 
                 placeholder="••••••••" 
@@ -1124,6 +1150,7 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Street Name</label>
                     <Input 
+                      id="street"
                       required 
                       placeholder="El-Nasr St." 
                       className="rounded-xl border-gray-100 bg-gray-50/50"
@@ -1134,6 +1161,7 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Building / Villa</label>
                     <Input 
+                      id="building"
                       required 
                       placeholder="No. 42" 
                       className="rounded-xl border-gray-100 bg-gray-50/50"
@@ -1168,6 +1196,7 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">City</label>
                     <Input 
+                      id="city"
                       required 
                       placeholder="Cairo" 
                       className="rounded-xl border-gray-100 bg-gray-50/50"
@@ -1178,6 +1207,7 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">State / Area</label>
                     <Input 
+                      id="state"
                       required 
                       placeholder="Maadi" 
                       className="rounded-xl border-gray-100 bg-gray-50/50"
@@ -1199,7 +1229,11 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
               </div>
             )}
 
-            <Button disabled={loading} className="w-full h-12 bg-green-600 hover:bg-green-700 rounded-full text-white font-bold shadow-xl shadow-green-100 mt-4">
+            <Button 
+              type="submit"
+              disabled={loading} 
+              className="w-full h-12 bg-green-600 hover:bg-green-700 rounded-full text-white font-bold shadow-xl shadow-green-100 mt-4"
+            >
               {loading ? <Loader2 className="animate-spin" /> : (mode === 'register' ? 'Create Account' : 'Login')}
             </Button>
           </form>
