@@ -12,7 +12,7 @@ import {
 } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { UserProfile } from './types';
+import { UserProfile, Address } from './types';
 import { getDocument, createDocument, updateDocument } from './lib/firebase-utils';
 import { toast } from 'sonner';
 
@@ -135,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (email: string, pass: string, data: Partial<UserProfile> & { initialAddress?: string }) => {
+  const register = async (email: string, pass: string, data: Partial<UserProfile> & { addressData?: Address }) => {
     const toastId = toast.loading('Creating account...');
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
@@ -149,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         gender: data.gender,
         role: 'customer',
         isVerified: false,
-        addresses: data.initialAddress ? [{ label: 'Home', address: data.initialAddress }] : []
+        addresses: data.addressData ? [data.addressData] : []
       };
       await createDocument('users', newProfile, cred.user.uid);
       setProfile(newProfile);

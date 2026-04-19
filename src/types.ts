@@ -18,6 +18,20 @@ export interface Product {
   unit?: string;
 }
 
+export interface Address {
+  label: string;
+  street: string;
+  building: string;
+  apartment?: string;
+  floor?: string;
+  city: string;
+  state: string;
+  country: string;
+  latitude?: number;
+  longitude?: number;
+  formattedAddress: string;
+}
+
 export interface UserProfile {
   uid: string;
   email?: string;
@@ -30,7 +44,7 @@ export interface UserProfile {
   gender?: 'male' | 'female';
   role: 'admin' | 'customer';
   isVerified?: boolean;
-  addresses?: { label: string; address: string }[];
+  addresses?: Address[];
 }
 
 export interface OrderItem {

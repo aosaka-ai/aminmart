@@ -20,6 +20,7 @@ import {
   Lock,
   MapPin,
   Navigation,
+  Globe,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './AuthProvider';
@@ -51,7 +52,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { collection, onSnapshot, query, orderBy, Timestamp, where } from 'firebase/firestore';
 import { db } from './firebase';
-import { Category, Product, Order } from './types';
+import { Category, Product, Order, Address } from './types';
 import { createDocument, updateDocument, removeDocument, uploadFile } from './lib/firebase-utils';
 import { Camera, Edit2, Loader2, RefreshCw } from 'lucide-react';
 
@@ -904,7 +905,16 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
     birthDate: '',
     gender: 'male' as 'male' | 'female',
     password: '',
-    address: ''
+    // Detailed Address Fields
+    street: '',
+    building: '',
+    apartment: '',
+    floor: '',
+    city: '',
+    state: '',
+    country: 'Egypt',
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined
   });
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
@@ -920,10 +930,12 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        // In a real app, we would use reverse geocoding here. 
-        // For now, we'll provide a placeholder or use a mock.
-        const mockAddress = `Lat: ${latitude.toFixed(4)}, Long: ${longitude.toFixed(4)} (Pinned from Map)`;
-        setFormData(prev => ({ ...prev, address: prev.address ? `${prev.address}\n${mockAddress}` : mockAddress }));
+        setFormData(prev => ({ 
+          ...prev, 
+          latitude, 
+          longitude,
+          street: prev.street || 'Located via GPS'
+        }));
         toast.success("Location pinned successfully!");
         setLocating(false);
       },
@@ -939,7 +951,20 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
     setLoading(true);
     try {
       if (mode === 'register') {
-        await register(formData.email, formData.password, { ...formData, initialAddress: formData.address });
+        const addressData: Address = {
+          label: 'Primary',
+          street: formData.street,
+          building: formData.building,
+          apartment: formData.apartment,
+          floor: formData.floor,
+          city: formData.city,
+          state: formData.state,
+          country: formData.country,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          formattedAddress: `${formData.building}, ${formData.street}, ${formData.city}, ${formData.country}`
+        };
+        await register(formData.email, formData.password, { ...formData, addressData });
         setView('verification');
       } else {
         await loginWithEmail(formData.email, formData.password);
@@ -1058,27 +1083,112 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
             </div>
 
             {mode === 'register' && (
-              <div className="space-y-2 pt-2">
+              <div className="space-y-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Delivery Address</label>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="text-green-600" size={18} />
+                    <label className="text-xs font-bold uppercase tracking-widest text-gray-700">Delivery Information</label>
+                  </div>
                   <button 
                     type="button"
                     onClick={getGeoLocation}
                     disabled={locating}
-                    className="text-[10px] font-bold text-green-600 flex items-center gap-1 hover:underline"
+                    className="text-[10px] font-bold text-green-600 flex items-center gap-1 bg-green-50 px-3 py-1.5 rounded-full hover:bg-green-100 transition-colors"
                   >
                     {locating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
-                    Pin from Map
+                    Pin current location
                   </button>
                 </div>
-                <div className="relative group">
-                  <MapPin className="absolute left-4 top-4 text-gray-300 group-focus-within:text-green-600 transition-colors" size={18} />
-                  <textarea 
+
+                {formData.latitude && formData.longitude && (
+                  <div className="rounded-2xl overflow-hidden border border-gray-100 h-40 relative shadow-inner">
+                    <iframe 
+                      width="100%" 
+                      height="100%" 
+                      frameBorder="0" 
+                      scrolling="no" 
+                      marginHeight={0} 
+                      marginWidth={0} 
+                      src={`https://maps.google.com/maps?q=${formData.latitude},${formData.longitude}&z=15&output=embed`}
+                    />
+                    <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-[8px] font-bold border border-gray-100 shadow-sm uppercase tracking-tighter">Verified Location</div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Street Name</label>
+                    <Input 
+                      required 
+                      placeholder="El-Nasr St." 
+                      className="rounded-xl border-gray-100 bg-gray-50/50"
+                      value={formData.street}
+                      onChange={e => setFormData({...formData, street: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Building / Villa</label>
+                    <Input 
+                      required 
+                      placeholder="No. 42" 
+                      className="rounded-xl border-gray-100 bg-gray-50/50"
+                      value={formData.building}
+                      onChange={e => setFormData({...formData, building: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Apt. Number</label>
+                    <Input 
+                      placeholder="Unit 10" 
+                      className="rounded-xl border-gray-100 bg-gray-50/50"
+                      value={formData.apartment}
+                      onChange={e => setFormData({...formData, apartment: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Floor</label>
+                    <Input 
+                      placeholder="3rd Floor" 
+                      className="rounded-xl border-gray-100 bg-gray-50/50"
+                      value={formData.floor}
+                      onChange={e => setFormData({...formData, floor: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">City</label>
+                    <Input 
+                      required 
+                      placeholder="Cairo" 
+                      className="rounded-xl border-gray-100 bg-gray-50/50"
+                      value={formData.city}
+                      onChange={e => setFormData({...formData, city: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">State / Area</label>
+                    <Input 
+                      required 
+                      placeholder="Maadi" 
+                      className="rounded-xl border-gray-100 bg-gray-50/50"
+                      value={formData.state}
+                      onChange={e => setFormData({...formData, state: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Country</label>
+                  <Input 
                     required 
-                    placeholder="Enter your street, building, and apartment number..." 
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 bg-gray-50/50 text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all h-24 resize-none"
-                    value={formData.address}
-                    onChange={e => setFormData({...formData, address: e.target.value})}
+                    readOnly
+                    className="rounded-xl border-gray-100 bg-gray-100 text-gray-400 cursor-not-allowed"
+                    value={formData.country}
                   />
                 </div>
               </div>
