@@ -62,15 +62,29 @@ const CURRENCY = 'EGP';
 // --- Components ---
 
 const Navbar = ({ setView, currentView }: { setView: (v: string) => void, currentView: string }) => {
-  const { profile, login, logout, refreshUser } = useAuth();
+  const { profile, logout, refreshUser } = useAuth();
   const { items } = useCart();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [logoTaps, setLogoTaps] = useState(0);
+
+  const handleLogoClick = () => {
+    const newTaps = logoTaps + 1;
+    if (newTaps >= 5) {
+      setLogoTaps(0);
+      setView('staff-login');
+      toast.info("Staff Portal Unlocked");
+    } else {
+      setLogoTaps(newTaps);
+      // Reset taps after 2 seconds of inactivity
+      setTimeout(() => setLogoTaps(0), 2000);
+      if (currentView !== 'home') setView('home');
+    }
+  };
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={handleLogoClick}>
             <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-200">
               <ShoppingCart size={24} />
             </div>
@@ -755,7 +769,8 @@ const AdminView = () => {
     birthDate: '',
     role: 'admin',
     isPreRegistered: true,
-    password: ''
+    password: '',
+    addresses: []
   });
 
   useEffect(() => {
@@ -902,9 +917,12 @@ const AdminView = () => {
     
     try {
       const uid = `staff_${Date.now()}`;
+      const normalizedEmployeeId = newAdmin.employeeId.trim().toUpperCase();
+
       // 1. Create the user profile
       await createDocument('users', {
         ...newAdmin,
+        employeeId: normalizedEmployeeId,
         joinDate: new Date().toISOString().split('T')[0],
         uid: uid,
         isPreRegistered: true
@@ -914,8 +932,8 @@ const AdminView = () => {
       await createDocument('staffCredentials', {
         uid: uid,
         password: newAdmin.password,
-        employeeId: newAdmin.employeeId
-      }, newAdmin.employeeId);
+        employeeId: normalizedEmployeeId
+      }, normalizedEmployeeId);
 
       toast.success("Staff profile and credentials created successfully.");
       setIsAdminDialogOpen(false);
@@ -929,7 +947,8 @@ const AdminView = () => {
         department: '',
         birthDate: '',
         role: 'admin',
-        isPreRegistered: true
+        isPreRegistered: true,
+        addresses: []
       });
     } catch (err) {
       toast.error("Failed to create local admin profile");
@@ -1281,6 +1300,68 @@ const AdminView = () => {
                           placeholder="••••••••" 
                           value={newAdmin.password} 
                           onChange={e => setNewAdmin({...newAdmin, password: e.target.value})} 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-100 flex items-center gap-2 mb-2">
+                       <MapPin size={14} className="text-purple-600" />
+                       <span className="text-[10px] uppercase font-bold tracking-widest text-gray-400">Staff Address</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-gray-400">Street</label>
+                        <Input 
+                          placeholder="Street" 
+                          value={(newAdmin.addresses?.[0] as any)?.street || ''} 
+                          onChange={e => {
+                            const addrs = [...(newAdmin.addresses || [])];
+                            if (!addrs[0]) addrs[0] = {} as any;
+                            (addrs[0] as any).street = e.target.value;
+                            setNewAdmin({...newAdmin, addresses: addrs});
+                          }} 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-gray-400">Building</label>
+                        <Input 
+                          placeholder="Bldg" 
+                          value={(newAdmin.addresses?.[0] as any)?.building || ''} 
+                          onChange={e => {
+                            const addrs = [...(newAdmin.addresses || [])];
+                            if (!addrs[0]) addrs[0] = {} as any;
+                            (addrs[0] as any).building = e.target.value;
+                            setNewAdmin({...newAdmin, addresses: addrs});
+                          }} 
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-gray-400">City</label>
+                        <Input 
+                          placeholder="City" 
+                          value={(newAdmin.addresses?.[0] as any)?.city || ''} 
+                          onChange={e => {
+                            const addrs = [...(newAdmin.addresses || [])];
+                            if (!addrs[0]) addrs[0] = {} as any;
+                            (addrs[0] as any).city = e.target.value;
+                            setNewAdmin({...newAdmin, addresses: addrs});
+                          }} 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-gray-400">State/Area</label>
+                        <Input 
+                          placeholder="Area" 
+                          value={(newAdmin.addresses?.[0] as any)?.state || ''} 
+                          onChange={e => {
+                            const addrs = [...(newAdmin.addresses || [])];
+                            if (!addrs[0]) addrs[0] = {} as any;
+                            (addrs[0] as any).state = e.target.value;
+                            setNewAdmin({...newAdmin, addresses: addrs});
+                          }} 
                         />
                       </div>
                     </div>
@@ -1967,7 +2048,7 @@ const RegisterView = ({ setView, mode: initialMode = 'login' }: { setView: (v: s
           </form>
         </Tabs>
 
-          <p className="text-center text-sm text-gray-500 mt-6">
+          <p className="text-center text-sm text-gray-500 mt-6 pb-4">
             {mode === 'register' ? 'Already have an account?' : "Don't have an account?"}
             <button 
               type="button"
@@ -1977,15 +2058,6 @@ const RegisterView = ({ setView, mode: initialMode = 'login' }: { setView: (v: s
               {mode === 'register' ? 'Login' : 'Register'}
             </button>
           </p>
-
-          <div className="mt-8 pt-8 border-t border-gray-100 text-center">
-            <button 
-              onClick={() => setView('staff-login')}
-              className="text-[10px] uppercase font-bold tracking-widest text-gray-300 hover:text-purple-600 transition-colors"
-            >
-              Staff Portal Access
-            </button>
-          </div>
         </CardContent>
       </Card>
     </div>

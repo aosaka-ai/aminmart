@@ -160,11 +160,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithEmployeeId = async (id: string, pass: string) => {
     const toastId = toast.loading('Verifying Admin Credentials...');
+    const normalizedId = id.trim().toUpperCase();
+    console.log(`Attempting staff login for ID: ${normalizedId}`);
     try {
       // Use direct document get for security and performance
-      const credDoc = await getDocument<any>('staffCredentials', id);
+      const credDoc = await getDocument<any>('staffCredentials', normalizedId);
       
       if (!credDoc) {
+        console.warn(`No credential document found for ID: ${normalizedId}`);
         throw new Error('Employee ID not found');
       }
       
