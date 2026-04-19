@@ -18,6 +18,8 @@ import {
   LogOut,
   Calendar,
   Lock,
+  MapPin,
+  Navigation,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './AuthProvider';
@@ -901,16 +903,43 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
     mobile: '',
     birthDate: '',
     gender: 'male' as 'male' | 'female',
-    password: ''
+    password: '',
+    address: ''
   });
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  const getGeoLocation = () => {
+    setLocating(true);
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      setLocating(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        // In a real app, we would use reverse geocoding here. 
+        // For now, we'll provide a placeholder or use a mock.
+        const mockAddress = `Lat: ${latitude.toFixed(4)}, Long: ${longitude.toFixed(4)} (Pinned from Map)`;
+        setFormData(prev => ({ ...prev, address: prev.address ? `${prev.address}\n${mockAddress}` : mockAddress }));
+        toast.success("Location pinned successfully!");
+        setLocating(false);
+      },
+      () => {
+        toast.error("Unable to retrieve your location. Please enter manually.");
+        setLocating(false);
+      }
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (mode === 'register') {
-        await register(formData.email, formData.password, formData);
+        await register(formData.email, formData.password, { ...formData, initialAddress: formData.address });
         setView('verification');
       } else {
         await loginWithEmail(formData.email, formData.password);
@@ -1027,6 +1056,33 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
                 onChange={e => setFormData({...formData, password: e.target.value})}
               />
             </div>
+
+            {mode === 'register' && (
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Delivery Address</label>
+                  <button 
+                    type="button"
+                    onClick={getGeoLocation}
+                    disabled={locating}
+                    className="text-[10px] font-bold text-green-600 flex items-center gap-1 hover:underline"
+                  >
+                    {locating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
+                    Pin from Map
+                  </button>
+                </div>
+                <div className="relative group">
+                  <MapPin className="absolute left-4 top-4 text-gray-300 group-focus-within:text-green-600 transition-colors" size={18} />
+                  <textarea 
+                    required 
+                    placeholder="Enter your street, building, and apartment number..." 
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 bg-gray-50/50 text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all h-24 resize-none"
+                    value={formData.address}
+                    onChange={e => setFormData({...formData, address: e.target.value})}
+                  />
+                </div>
+              </div>
+            )}
 
             <Button disabled={loading} className="w-full h-12 bg-green-600 hover:bg-green-700 rounded-full text-white font-bold shadow-xl shadow-green-100 mt-4">
               {loading ? <Loader2 className="animate-spin" /> : (mode === 'register' ? 'Create Account' : 'Login')}

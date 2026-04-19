@@ -135,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (email: string, pass: string, data: Partial<UserProfile>) => {
+  const register = async (email: string, pass: string, data: Partial<UserProfile> & { initialAddress?: string }) => {
     const toastId = toast.loading('Creating account...');
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
@@ -149,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         gender: data.gender,
         role: 'customer',
         isVerified: false,
-        addresses: []
+        addresses: data.initialAddress ? [{ label: 'Home', address: data.initialAddress }] : []
       };
       await createDocument('users', newProfile, cred.user.uid);
       setProfile(newProfile);
