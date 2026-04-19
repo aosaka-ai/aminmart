@@ -881,20 +881,30 @@ const AdminView = () => {
     if (!editingUser) return;
     const toastId = toast.loading("Updating user...");
     try {
-      const normalizedNewId = editUserData.employeeId?.trim().toUpperCase();
+      // Ensure basic fields for legacy data resilience
+      const finalData = {
+        ...editUserData,
+        uid: editUserData.uid || editingUser.uid || editingUser.id,
+        role: editUserData.role || editingUser.role || 'customer'
+      };
+
+      const normalizedNewId = finalData.employeeId?.trim().toUpperCase();
       const normalizedOldId = editingUser.employeeId?.trim().toUpperCase();
 
       // 1. Update main user profile
       const isSuperAdmin = auth.currentUser?.email === 'a.osaka@gmail.com';
       
       // Safety: Only super admin can change roles
-      const updateData = { ...editUserData, employeeId: normalizedNewId };
-      if (!isSuperAdmin && editUserData.role !== editingUser.role) {
+      const updateData = { ...finalData, employeeId: normalizedNewId };
+      if (!isSuperAdmin && finalData.role !== editingUser.role) {
          updateData.role = editingUser.role;
          console.warn("[SECURITY] Role change attempted by non-super admin. Ignored.");
       }
 
-      await updateDocument('users', editingUser.uid, updateData);
+      const targetId = editingUser.uid || editingUser.id;
+      if (!targetId) throw new Error("Missing User ID for update");
+
+      await updateDocument('users', targetId, updateData);
 
       // 2. Sync credentials if it's an admin and something changed
       if (editUserData.role === 'admin') {
@@ -1526,18 +1536,31 @@ const AdminView = () => {
                           size="icon" 
                           onClick={() => startEditUser(u)}
                           className="text-gray-500 hover:text-gray-900 border-gray-100 h-8 w-8"
+                          title="Edit Profile"
                         >
                           <Edit2 size={14} />
                         </Button>
                         {u.email !== 'a.osaka@gmail.com' && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => toggleUserRole(u.uid, u.role)}
-                            className="text-red-600 hover:text-red-700 border-red-100 h-8"
-                          >
-                            Revoke Admin
-                          </Button>
+                          <>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => toggleUserRole(u.uid, u.role)}
+                              className="text-orange-500 hover:text-orange-700 hover:bg-orange-50 h-8 w-8"
+                              title="Revoke Admin Permissions"
+                            >
+                              <TrendingDown size={14} />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleDeleteUser(u.uid || u.id || '')}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
+                              title="Delete Account Permanently"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>

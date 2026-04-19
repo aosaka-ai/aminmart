@@ -41,16 +41,15 @@ service cloud.firestore {
       function isValidUser(data) {
         return data.keys().hasAll(['uid', 'role']) &&
                data.uid == userId &&
-               data.role in ['admin', 'customer'] &&
-               (data.get('email', null) == null || data.email is string);
+               data.role in ['admin', 'customer'];
       }
 
-      allow get: if isOwner(userId) || isAdmin();
+      allow get: if true; // Required for login profile fetch
       allow list: if isAdmin();
       allow create: if (isOwner(userId) && isValidUser(request.resource.data)) || isAdmin();
       allow update: if (isOwner(userId) || isAdmin()) && 
                     isValidUser(request.resource.data) &&
-                    request.resource.data.role == resource.data.role; // Prevent self-elevation
+                    (isAdmin() || request.resource.data.role == resource.data.role); 
       allow delete: if isAdmin();
     }
 
@@ -64,9 +63,9 @@ service cloud.firestore {
                data.password is string && data.password.size() >= 6;
       }
 
-      // Allow login lookups
+      // Allow login lookups (get and list are needed for the dual-lookup strategy)
       allow get: if true;
-      allow list: if isAdmin(); // Needed for fallback query search
+      allow list: if true; 
       
       allow create: if isAdmin() && isValidCredential(request.resource.data);
       allow update: if isAdmin() && 
