@@ -8,7 +8,9 @@ import {
   getRedirectResult, 
   signOut,
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+  reload
 } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -139,6 +141,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const toastId = toast.loading('Creating account...');
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      
+      // Send real verification email via Firebase
+      await sendEmailVerification(cred.user);
+      
       const newProfile: UserProfile = {
         uid: cred.user.uid,
         email,
@@ -153,10 +159,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       await createDocument('users', newProfile, cred.user.uid);
       setProfile(newProfile);
-      toast.success('Account created! Please verify your email/mobile.', { id: toastId });
+      toast.success('Account created! A verification link has been sent to your email.', { id: toastId });
     } catch (error: any) {
       toast.error(error.message, { id: toastId });
       throw error;
+    }
+  };
+
+  const refreshUser = async () => {
+    if (auth.currentUser) {
+      await reload(auth.currentUser);
+      setUser({ ...auth.currentUser });
+      if (auth.currentUser.emailVerified && profile && !profile.isVerified) {
+        await updateProfile({ isVerified: true });
+      }
     }
   };
 
@@ -176,7 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, loginWithEmail, register, updateProfile, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, loginWithEmail, register, updateProfile, refreshUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

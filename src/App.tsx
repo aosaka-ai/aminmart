@@ -61,7 +61,7 @@ const CURRENCY = 'EGP';
 // --- Components ---
 
 const Navbar = ({ setView, currentView }: { setView: (v: string) => void, currentView: string }) => {
-  const { profile, login, logout } = useAuth();
+  const { profile, login, logout, refreshUser } = useAuth();
   const { items } = useCart();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -110,9 +110,14 @@ const Navbar = ({ setView, currentView }: { setView: (v: string) => void, curren
                   <p className="text-xs font-semibold text-gray-900">{profile.firstName ? `${profile.firstName} ${profile.lastName}` : profile.displayName || 'User'}</p>
                   <p className="text-[10px] text-gray-500 capitalize">{profile.role}</p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={logout}>
-                  <LogOut size={20} className="text-gray-500" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" onClick={() => refreshUser()} title="Refresh Profile">
+                    <RefreshCw size={18} className="text-gray-400 hover:text-green-600 transition-colors" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={logout}>
+                    <LogOut size={20} className="text-gray-500" />
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="flex items-center gap-2">
@@ -1232,23 +1237,29 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
 };
 
 const VerificationView = ({ setView }: { setView: (v: string) => void }) => {
-  const { profile, updateProfile } = useAuth();
-  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const { profile, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
 
-  const handleVerify = async () => {
+  const handleCheckStatus = async () => {
     setLoading(true);
-    // Simulation: Any 6 digits work for demo
-    setTimeout(async () => {
-      try {
-        await updateProfile({ isVerified: true });
-        toast.success('Identity verified!');
-        setView('home');
-      } finally {
-        setLoading(false);
-      }
-    }, 1500);
+    try {
+      await refreshUser();
+      // AuthProvider's refreshUser will update profile.isVerified automatically if email is verified
+      toast.success('Checking status...');
+    } catch (err) {
+      toast.error('Failed to refresh status');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Auto-redirect if verified
+  useEffect(() => {
+    if (profile?.isVerified) {
+      toast.success('Account verified!');
+      setView('home');
+    }
+  }, [profile?.isVerified, setView]);
 
   return (
     <div className="max-w-md mx-auto px-4 py-20">
@@ -1257,41 +1268,38 @@ const VerificationView = ({ setView }: { setView: (v: string) => void }) => {
           <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
             <Lock size={32} />
           </div>
-          <CardTitle className="text-3xl font-bold">Verify Identity</CardTitle>
+          <CardTitle className="text-3xl font-bold">Verify Your Email</CardTitle>
           <CardDescription className="text-gray-500">
-            We sent a 6-digit code to <b>{profile?.email || profile?.mobile}</b>. <br />Please enter it below to continue.
+            A real verification link has been sent to:<br />
+            <b className="text-green-600">{profile?.email}</b><br /><br />
+            Please check your inbox (and spam folder) and click the link to verify your account.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-10 space-y-8">
-          <div className="flex justify-center gap-2">
-            {code.map((digit, i) => (
-              <input
-                key={i}
-                type="text"
-                maxLength={1}
-                className="w-10 h-14 text-center text-2xl font-bold bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-green-500 transition-all outline-none"
-                value={digit}
-                onChange={(e) => {
-                  const newCode = [...code];
-                  newCode[i] = e.target.value.slice(-1);
-                  setCode(newCode);
-                  if (e.target.value && i < 5) {
-                    const next = e.target.nextElementSibling as HTMLInputElement;
-                    if (next) next.focus();
-                  }
-                }}
-              />
-            ))}
+          <div className="bg-gray-50 p-6 rounded-2xl text-xs text-gray-500 leading-relaxed text-left space-y-2 border border-gray-100">
+            <div className="flex gap-2">
+              <CheckCircle size={14} className="text-green-600 shrink-0" />
+              <span>Identity verification link sent via Firebase.</span>
+            </div>
+            <div className="flex gap-2">
+              <CheckCircle size={14} className="text-green-600 shrink-0" />
+              <span>PIN codes via SMS/Mobile (Twilio/Resend) require an API key to be configured.</span>
+            </div>
           </div>
+
           <Button 
-            disabled={loading || code.some(d => !d)} 
-            onClick={handleVerify}
+            disabled={loading} 
+            onClick={handleCheckStatus}
             className="w-full h-12 bg-green-600 hover:bg-green-700 rounded-full text-white font-bold shadow-xl shadow-green-100"
           >
-            {loading ? <Loader2 className="animate-spin" /> : 'Verify & Continue'}
+            {loading ? <Loader2 className="animate-spin" /> : 'I have verified my email'}
           </Button>
+          
           <p className="text-sm text-gray-400">
-            Didn't receive the code? <button className="text-green-600 font-bold hover:underline">Resend</button>
+            Didn't receive the email? <button 
+              onClick={() => toast.info("Firebase allows resending after a short delay.")}
+              className="text-green-600 font-bold hover:underline"
+            >Resend Link</button>
           </p>
         </CardContent>
       </Card>
