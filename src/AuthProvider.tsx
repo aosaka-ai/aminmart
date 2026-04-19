@@ -159,24 +159,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginWithEmployeeId = async (id: string, pass: string) => {
-    const toastId = toast.loading('Verifying Employee ID...');
+    const toastId = toast.loading('Verifying Admin Credentials...');
     try {
-      const results = await getCollection<UserProfile>('users', [where('employeeId', '==', id)]);
-      const userDoc = results[0];
+      // Use direct document get for security and performance
+      const credDoc = await getDocument<any>('staffCredentials', id);
       
-      if (!userDoc) {
+      if (!credDoc) {
         throw new Error('Employee ID not found');
       }
       
-      if (userDoc.password !== pass) {
+      if (credDoc.password !== pass) {
         throw new Error('Invalid password');
       }
 
-      // NOTE: In a production app, we would use Firebase Auth. 
-      // This is a prototype implementation for local admin login.
+      // Fetch the actual user profile linked to this credential
+      const userDoc = await getDocument<UserProfile>('users', credDoc.uid);
+      if (!userDoc) {
+        throw new Error('Admin profile corrupted or not found');
+      }
+
+      // NOTE: Prototype implementation for local admin bypass
       setProfile(userDoc);
-      // We don't have a Firebase 'User' object here since we bypassed Auth
-      // This might cause issues with some hooks, but works for the dashboard
       toast.success(`Welcome back, ${userDoc.firstName}!`, { id: toastId });
     } catch (error: any) {
       toast.error(error.message, { id: toastId });

@@ -901,14 +901,23 @@ const AdminView = () => {
     }
     
     try {
-      // Create a document with a random ID since we don't have the auth UID yet
-      // The id check in updateDocument/createDocument will handle it
+      const uid = `staff_${Date.now()}`;
+      // 1. Create the user profile
       await createDocument('users', {
         ...newAdmin,
         joinDate: new Date().toISOString().split('T')[0],
-        uid: `pending_${Date.now()}` // Temporary UID
-      });
-      toast.success("Local admin created. They will link to this profile when they register.");
+        uid: uid,
+        isPreRegistered: true
+      }, uid);
+
+      // 2. Create the login credential link
+      await createDocument('staffCredentials', {
+        uid: uid,
+        password: newAdmin.password,
+        employeeId: newAdmin.employeeId
+      }, newAdmin.employeeId);
+
+      toast.success("Staff profile and credentials created successfully.");
       setIsAdminDialogOpen(false);
       setNewAdmin({
         firstName: '',
@@ -1513,9 +1522,88 @@ const AdminView = () => {
   );
 };
 
+const StaffLoginView = ({ setView }: { setView: (v: string) => void }) => {
+  const { loginWithEmployeeId } = useAuth();
+  const [employeeId, setEmployeeId] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleStaffSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employeeId || !password) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await loginWithEmployeeId(employeeId, password);
+      setView('home');
+    } catch (err: any) {
+      console.error("Staff login error:", err);
+      // Detailed error is already toasted in AuthProvider
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto px-4 py-20">
+      <Card className="border-none shadow-2xl shadow-purple-100 rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="bg-purple-600 text-white p-10 text-center space-y-2">
+          <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-md">
+            <Lock size={32} />
+          </div>
+          <CardTitle className="text-3xl font-bold">Staff Portal</CardTitle>
+          <CardDescription className="text-purple-100 italic">
+            Enter your employee credentials to access the admin dashboard.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-10">
+          <form onSubmit={handleStaffSubmit} className="space-y-6">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Employee ID</label>
+              <Input 
+                placeholder="EP-001" 
+                value={employeeId}
+                onChange={e => setEmployeeId(e.target.value)}
+                className="rounded-xl border-gray-100 bg-gray-50/50 h-12"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Security Password</label>
+              <Input 
+                type="password"
+                placeholder="••••••••" 
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="rounded-xl border-gray-100 bg-gray-50/50 h-12"
+              />
+            </div>
+            <Button 
+              type="submit" 
+              disabled={loading}
+              className="w-full h-14 bg-purple-600 hover:bg-purple-700 rounded-2xl text-white text-lg font-bold shadow-xl shadow-purple-100 mt-4 transition-transform active:scale-95"
+            >
+              {loading ? <Loader2 className="animate-spin" /> : "Verify Identity"}
+            </Button>
+            <Button 
+              type="button" 
+              variant="ghost" 
+              onClick={() => setView('login')}
+              className="w-full text-xs font-bold uppercase tracking-widest text-gray-400"
+            >
+              Return to Customer Login
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 const RegisterView = ({ setView, mode: initialMode = 'login' }: { setView: (v: string) => void, mode?: 'register' | 'login' }) => {
-  const { register, loginWithEmail, loginWithEmployeeId, login: loginWithGoogle } = useAuth();
-  const [mode, setMode] = useState<'register' | 'login' | 'employee'>(initialMode);
+  const { register, loginWithEmail, login: loginWithGoogle } = useAuth();
+  const [mode, setMode] = useState<'register' | 'login'>(initialMode);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -1570,12 +1658,7 @@ const RegisterView = ({ setView, mode: initialMode = 'login' }: { setView: (v: s
     e.preventDefault();
     console.log("Form submission started", { mode, email: formData.email });
     
-    if (mode === 'employee') {
-      if (!formData.employeeId || !formData.password) {
-        toast.error("Please fill in both Employee ID and password.");
-        return;
-      }
-    } else if (mode === 'register') {
+    if (mode === 'register') {
       // Manual validation to provide better feedback
       const requiredFields = ['firstName', 'lastName', 'email', 'mobile', 'birthDate', 'password', 'street', 'building', 'city', 'state'];
       for (const field of requiredFields) {
@@ -1593,10 +1676,7 @@ const RegisterView = ({ setView, mode: initialMode = 'login' }: { setView: (v: s
 
     setLoading(true);
     try {
-      if (mode === 'employee') {
-        await loginWithEmployeeId(formData.employeeId, formData.password);
-        setView('home');
-      } else if (mode === 'register') {
+      if (mode === 'register') {
         const addressData: Address = {
           label: 'Primary',
           street: formData.street || '',
@@ -1633,55 +1713,21 @@ const RegisterView = ({ setView, mode: initialMode = 'login' }: { setView: (v: s
             <User size={32} />
           </div>
           <CardTitle className="text-3xl font-bold">
-            {mode === 'register' ? 'Create Account' : mode === 'employee' ? 'Admin Access' : 'Welcome Back'}
+            {mode === 'register' ? 'Create Account' : 'Welcome Back'}
           </CardTitle>
           <CardDescription className="text-green-100 italic">
-            {mode === 'register' ? 'Join AminMart for the freshest groceries' : mode === 'employee' ? 'Internal staff portal' : 'Login to your boutique grocery store'}
+            {mode === 'register' ? 'Join AminMart for the freshest groceries' : 'Login to your boutique grocery store'}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-10">
           <Tabs value={mode} onValueChange={(v: any) => setMode(v)} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-8 bg-gray-100 p-1 rounded-2xl h-12">
-              <TabsTrigger value="login" className="rounded-xl font-bold">Email</TabsTrigger>
-              <TabsTrigger value="employee" className="rounded-xl font-bold">Admin ID</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 mb-8 bg-gray-100 p-1 rounded-2xl h-12">
+              <TabsTrigger value="login" className="rounded-xl font-bold">Sign In</TabsTrigger>
               <TabsTrigger value="register" className="rounded-xl font-bold">Register</TabsTrigger>
             </TabsList>
             
             <form onSubmit={handleSubmit} noValidate className="space-y-4 text-left">
-              {mode === 'employee' && (
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Employee ID</label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
-                      <Input 
-                        placeholder="EP-001" 
-                        value={formData.employeeId} 
-                        onChange={e => setFormData({...formData, employeeId: e.target.value})}
-                        className="pl-10 h-12 rounded-xl border-gray-100 bg-gray-50/50"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Password</label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
-                      <Input 
-                        type="password" 
-                        placeholder="••••••••" 
-                        value={formData.password} 
-                        onChange={e => setFormData({...formData, password: e.target.value})}
-                        className="pl-10 h-12 rounded-xl border-gray-100 bg-gray-50/50"
-                      />
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-lg font-bold rounded-2xl shadow-lg shadow-purple-100 transition-all active:scale-[0.98]" disabled={loading}>
-                    {loading ? "Verifying..." : "Login as Admin"}
-                  </Button>
-                </div>
-              )}
-
-              {mode !== 'employee' && mode === 'register' && (
+              {mode === 'register' && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">First Name</label>
@@ -1708,20 +1754,18 @@ const RegisterView = ({ setView, mode: initialMode = 'login' }: { setView: (v: s
               </div>
             )}
             
-            {mode !== 'employee' && (
-              <>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Email Address</label>
-                  <Input 
-                    id="email"
-                    type="email" 
-                    required 
-                    placeholder="john@example.com" 
-                    className="rounded-xl border-gray-100 bg-gray-50/50"
-                    value={formData.email}
-                    onChange={e => setFormData({...formData, email: e.target.value})}
-                  />
-                </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Email Address</label>
+              <Input 
+                id="email"
+                type="email" 
+                required 
+                placeholder="john@example.com" 
+                className="rounded-xl border-gray-100 bg-gray-50/50"
+                value={formData.email}
+                onChange={e => setFormData({...formData, email: e.target.value})}
+              />
+            </div>
 
             {mode === 'register' && (
               <>
@@ -1894,17 +1938,15 @@ const RegisterView = ({ setView, mode: initialMode = 'login' }: { setView: (v: s
                       />
                     </div>
                   </div>
-                )}
-              </>
-            )}
+              )}
 
-            <Button 
-              type="submit"
-              disabled={loading} 
-              className="w-full h-14 bg-green-600 hover:bg-green-700 rounded-2xl text-white text-lg font-bold shadow-xl shadow-green-100 mt-4 transition-transform active:scale-95"
-            >
-              {loading ? "Loading..." : mode === 'employee' ? 'Login as Admin' : mode === 'register' ? 'Join AminMart' : 'Sign In'}
-            </Button>
+              <Button 
+                type="submit"
+                disabled={loading} 
+                className="w-full h-14 bg-green-600 hover:bg-green-700 rounded-2xl text-white text-lg font-bold shadow-xl shadow-green-100 mt-4 transition-transform active:scale-95"
+              >
+                {loading ? "Loading..." : mode === 'register' ? 'Join AminMart' : 'Sign In'}
+              </Button>
             
             {mode === 'login' && (
               <div className="pt-8 space-y-4">
@@ -1926,15 +1968,24 @@ const RegisterView = ({ setView, mode: initialMode = 'login' }: { setView: (v: s
         </Tabs>
 
           <p className="text-center text-sm text-gray-500 mt-6">
-            {mode === 'register' ? 'Already have an account?' : mode === 'employee' ? 'Trouble logging in?' : "Don't have an account?"}
+            {mode === 'register' ? 'Already have an account?' : "Don't have an account?"}
             <button 
               type="button"
-              onClick={() => setMode(mode === 'register' ? 'login' : mode === 'employee' ? 'login' : 'register')}
+              onClick={() => setMode(mode === 'register' ? 'login' : 'register')}
               className="ml-1 text-green-600 font-bold hover:underline"
             >
-              {mode === 'register' ? 'Login' : mode === 'employee' ? 'Contact Support' : 'Register'}
+              {mode === 'register' ? 'Login' : 'Register'}
             </button>
           </p>
+
+          <div className="mt-8 pt-8 border-t border-gray-100 text-center">
+            <button 
+              onClick={() => setView('staff-login')}
+              className="text-[10px] uppercase font-bold tracking-widest text-gray-300 hover:text-purple-600 transition-colors"
+            >
+              Staff Portal Access
+            </button>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -2123,6 +2174,7 @@ export default function App() {
             {view === 'orders' && <OrdersView />}
             {view === 'register' && <RegisterView setView={setView} mode="register" />}
             {view === 'login' && <RegisterView setView={setView} mode="login" />}
+            {view === 'staff-login' && <StaffLoginView setView={setView} />}
             {view === 'verification' && <VerificationView setView={setView} />}
           </motion.div>
         </AnimatePresence>
