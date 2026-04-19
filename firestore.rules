@@ -1,114 +1,109 @@
-// ===============================================================
-// Assumed Data Model
-// ===============================================================
-//
-// Collection: categories
-// Fields:
-//   - name: string (required)
-//   - slug: string (required)
-//   - icon: string (optional)
-//
-// Collection: products
-// Fields:
-//   - name: string (required)
-//   - description: string (optional)
-//   - price: number (required, positive)
-//   - categoryId: string (required)
-//   - stock: number (required, non-negative)
-//   - imageUrl: string (optional)
-//   - isHotDeal: bool (optional)
-//   - unit: string (optional)
-//
-// Collection: users
-// Fields:
-//   - uid: string (required)
-//   - email: string (optional)
-//   - phoneNumber: string (optional)
-//   - displayName: string (optional)
-//   - role: string (required, 'admin' | 'customer')
-//   - addresses: list (optional)
-//
-// Collection: orders
-// Fields:
-//   - userId: string (required)
-//   - items: list (required)
-//   - total: number (required, positive)
-//   - status: string (required, 'pending' | 'confirmed' | 'out-for-delivery' | 'delivered')
-//   - paymentMethod: string (required, 'visa' | 'instapay' | 'cash')
-//   - deliveryAddress: string (required)
-//   - createdAt: timestamp (required)
-//
-// ===============================================================
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
-    function isAuthenticated() {
+    // --- Helper Functions ---
+    
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
     }
 
+    // Role-based helpers
     function isAdmin() {
-      return isAuthenticated() &&
-        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-         (request.auth.token.email == "a.osaka@gmail.com" && request.auth.token.email_verified == true));
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        (request.auth.token.email == "a.osaka@gmail.com" && isEmailVerified())
+      );
     }
 
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isPositive(val) {
-      return val is number && val > 0;
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function isNonNegative(val) {
-      return val is number && val >= 0;
-    }
+    // --- Collection Schemas & Rules ---
 
-    // ===============================================================
-    // Collection Rules
-    // ===============================================================
-
+    // USERS COLLECTION
     match /users/{userId} {
-      allow read, list: if isOwner(userId) || isAdmin();
-      allow create: if (isAuthenticated() && request.auth.uid == userId) || isAdmin();
-      allow update: if isOwner(userId) || isAdmin();
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'role']) &&
+               data.uid == userId &&
+               data.role in ['admin', 'customer'] &&
+               (data.get('email', null) == null || data.email is string);
+      }
+
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if (isOwner(userId) && isValidUser(request.resource.data)) || isAdmin();
+      allow update: if (isOwner(userId) || isAdmin()) && 
+                    isValidUser(request.resource.data) &&
+                    request.resource.data.role == resource.data.role; // Prevent self-elevation
       allow delete: if isAdmin();
     }
 
+    // STAFF CREDENTIALS
+    // Access is based on Employee ID as the document ID
     match /staffCredentials/{employeeId} {
-      // Allow specific lookups for login by anyone (handled by code logic)
-      // For a more secure prototype, we allow 'get' so code can verify password
+      function isValidCredential(data) {
+        return data.keys().hasAll(['uid', 'employeeId', 'password']) &&
+               data.uid is string &&
+               data.employeeId == employeeId &&
+               data.password is string && data.password.size() >= 6;
+      }
+
+      // Allow login lookups
       allow get: if true;
-      allow list: if isAdmin();
-      allow create, update, delete: if isAdmin();
+      allow list: if isAdmin(); // Needed for fallback query search
+      
+      allow create: if isAdmin() && isValidCredential(request.resource.data);
+      allow update: if isAdmin() && 
+                    isValidCredential(request.resource.data) &&
+                    request.resource.data.uid == resource.data.uid; // Bound to same user
+      allow delete: if isAdmin();
     }
 
+    // CATEGORIES
     match /categories/{categoryId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
+    // PRODUCTS
     match /products/{productId} {
       allow read: if true;
       allow write: if isAdmin();
-      allow update: if isAuthenticated(); // Allow users to update stock during checkout in this prototype
+      // Allow users to decrement stock during purchase (simplified for prototype)
+      allow update: if isSignedIn() && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock']);
     }
 
+    // ORDERS
     match /orders/{orderId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
-      allow update: if isAdmin(); // Only admin can update status
+      function isValidOrder(data) {
+        return data.userId == request.auth.uid &&
+               data.total is number && data.total > 0 &&
+               data.status in ['pending', 'confirmed', 'out-for-delivery', 'delivered'];
+      }
+
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow create: if isSignedIn() && isValidOrder(request.resource.data);
+      allow update: if isAdmin() && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
       allow delete: if isAdmin();
     }
   }

@@ -52,7 +52,7 @@ import {
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { collection, onSnapshot, query, orderBy, Timestamp, where } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { Category, Product, Order, Address, UserProfile } from './types';
 import { createDocument, updateDocument, removeDocument, uploadFile } from './lib/firebase-utils';
 import { Camera, Edit2, Loader2, RefreshCw } from 'lucide-react';
@@ -879,13 +879,53 @@ const AdminView = () => {
 
   const handleUpdateUser = async () => {
     if (!editingUser) return;
+    const toastId = toast.loading("Updating user...");
     try {
-      await updateDocument('users', editingUser.uid, editUserData);
-      toast.success("User profile updated");
+      const normalizedNewId = editUserData.employeeId?.trim().toUpperCase();
+      const normalizedOldId = editingUser.employeeId?.trim().toUpperCase();
+
+      // 1. Update main user profile
+      const isSuperAdmin = auth.currentUser?.email === 'a.osaka@gmail.com';
+      
+      // Safety: Only super admin can change roles
+      const updateData = { ...editUserData, employeeId: normalizedNewId };
+      if (!isSuperAdmin && editUserData.role !== editingUser.role) {
+         updateData.role = editingUser.role;
+         console.warn("[SECURITY] Role change attempted by non-super admin. Ignored.");
+      }
+
+      await updateDocument('users', editingUser.uid, updateData);
+
+      // 2. Sync credentials if it's an admin and something changed
+      if (editUserData.role === 'admin') {
+        // If ID changed, we must move the document (Delete old, Create new)
+        if (normalizedNewId && normalizedNewId !== normalizedOldId) {
+           console.log(`[SYNC] Employee ID changed from ${normalizedOldId} to ${normalizedNewId}. Migrating credentials...`);
+           
+           // Delete old if it existed
+           if (normalizedOldId) {
+             try { await removeDocument('staffCredentials', normalizedOldId); } catch (e) { console.warn("Could not delete old credential", e); }
+           }
+
+           // Create new
+           await createDocument('staffCredentials', {
+             uid: editingUser.uid,
+             password: editUserData.password || '123456', // Fallback
+             employeeId: normalizedNewId
+           }, normalizedNewId);
+        } else if (normalizedNewId && editUserData.password) {
+           // Just update existing
+           await updateDocument('staffCredentials', normalizedNewId, {
+             password: editUserData.password
+           });
+        }
+      }
+
+      toast.success("User profile and credentials updated", { id: toastId });
       setIsEditUserDialogOpen(false);
       setEditingUser(null);
     } catch (error: any) {
-      toast.error(`Update failed: ${error.message}`);
+      toast.error(`Update failed: ${error.message}`, { id: toastId });
     }
   };
 
@@ -1435,6 +1475,16 @@ const AdminView = () => {
                           <Input 
                             value={editUserData.employeeId || ''} 
                             onChange={e => setEditUserData({...editUserData, employeeId: e.target.value})} 
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-purple-400">Security Password (Optional Update)</label>
+                          <Input 
+                            type="password"
+                            placeholder="Type new password or leave blank"
+                            value={editUserData.password || ''} 
+                            onChange={e => setEditUserData({...editUserData, password: e.target.value})} 
+                            className="bg-purple-50/30 border-purple-100"
                           />
                         </div>
                       </>

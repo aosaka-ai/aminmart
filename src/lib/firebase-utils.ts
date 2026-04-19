@@ -68,28 +68,19 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Generic helpers
 export async function getDocument<T>(path: string, id: string): Promise<T | null> {
   try {
     const docRef = doc(db, path, id);
-    // Add a 10s timeout to prevent hanging
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Request timed out')), 10000)
-    );
-    
-    const docSnap = await Promise.race([
-      getDoc(docRef),
-      timeoutPromise
-    ]) as any;
+    const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() } as T;
     }
     return null;
   } catch (error) {
-    console.error('Error getting document:', error);
-    // Don't call handleFirestoreError here to avoid infinite loops if it's a connection issue
-    return null;
+    console.error(`Error getting document at ${path}/${id}:`, error);
+    // Throwing so the caller knows it's an error, not just a missing doc
+    throw error;
   }
 }
 
@@ -97,21 +88,11 @@ export async function getCollection<T>(path: string, queryConstraints: any[] = [
   try {
     const colRef = collection(db, path);
     const q = query(colRef, ...queryConstraints);
-    
-    // Add a 10s timeout
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Request timed out')), 10000)
-    );
-    
-    const querySnapshot = await Promise.race([
-      getDocs(q),
-      timeoutPromise
-    ]) as any;
-
+    const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as T));
   } catch (error) {
-    console.error('Error getting collection:', error);
-    return [];
+    console.error(`Error getting collection at ${path}:`, error);
+    throw error;
   }
 }
 

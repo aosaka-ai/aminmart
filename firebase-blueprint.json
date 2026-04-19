@@ -5,10 +5,10 @@
       "description": "Product category",
       "type": "object",
       "properties": {
-        "name": { "type": "string", "description": "Category name" },
-        "slug": { "type": "string", "description": "URL friendly name" },
-        "icon": { "type": "string", "description": "Lucide icon name" },
-        "imageUrl": { "type": "string", "description": "Category image URL" }
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "icon": { "type": "string" },
+        "imageUrl": { "type": "string" }
       },
       "required": ["name", "slug"]
     },
@@ -18,38 +18,40 @@
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "description": { "type": "string" },
         "price": { "type": "number" },
+        "stock": { "type": "number" },
         "categoryId": { "type": "string" },
-        "stock": { "type": "integer" },
+        "unit": { "type": "string" },
         "imageUrl": { "type": "string" },
-        "isHotDeal": { "type": "boolean" },
-        "unit": { "type": "string", "description": "e.g., kg, pack, piece" }
+        "description": { "type": "string" }
       },
-      "required": ["name", "price", "categoryId", "stock"]
+      "required": ["name", "price", "stock", "categoryId"]
     },
-    "User": {
-      "title": "User",
-      "description": "Customer or Admin profile",
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User account information",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string" },
-        "phoneNumber": { "type": "string" },
-        "displayName": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
         "role": { "type": "string", "enum": ["admin", "customer"] },
-        "addresses": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "label": { "type": "string" },
-              "address": { "type": "string" }
-            }
-          }
-        }
+        "employeeId": { "type": "string" },
+        "addresses": { "type": "array" }
       },
       "required": ["uid", "role"]
+    },
+    "StaffCredential": {
+      "title": "Staff Credential",
+      "description": "Secure login credentials for staff",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "password": { "type": "string" }
+      },
+      "required": ["uid", "employeeId", "password"]
     },
     "Order": {
       "title": "Order",
@@ -57,43 +59,18 @@
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "productId": { "type": "string" },
-              "name": { "type": "string" },
-              "quantity": { "type": "number" },
-              "price": { "type": "number" }
-            }
-          }
-        },
         "total": { "type": "number" },
-        "status": { "type": "string", "enum": ["pending", "confirmed", "out-for-delivery", "delivered"] },
-        "paymentMethod": { "type": "string", "enum": ["visa", "instapay", "cash"] },
-        "deliveryAddress": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "status": { "type": "string" },
+        "items": { "type": "array" }
       },
-      "required": ["userId", "items", "total", "status", "paymentMethod", "createdAt"]
+      "required": ["userId", "total", "status", "items"]
     }
   },
   "firestore": {
-    "/categories/{categoryId}": {
-      "schema": "Category",
-      "description": "Product categories"
-    },
-    "/products/{productId}": {
-      "schema": "Product",
-      "description": "Available products"
-    },
-    "/users/{userId}": {
-      "schema": "User",
-      "description": "User profiles"
-    },
-    "/orders/{orderId}": {
-      "schema": "Order",
-      "description": "Customer orders"
-    }
+    "categories": { "schema": "Category", "description": "Product categories" },
+    "products": { "schema": "Product", "description": "Supermarket products" },
+    "users": { "schema": "UserProfile", "description": "User profiles" },
+    "staffCredentials": { "schema": "StaffCredential", "description": "Staff login credentials" },
+    "orders": { "schema": "Order", "description": "Customer orders" }
   }
 }

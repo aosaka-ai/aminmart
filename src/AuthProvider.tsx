@@ -161,31 +161,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithEmployeeId = async (id: string, pass: string) => {
     const toastId = toast.loading('Verifying Admin Credentials...');
     const normalizedId = id.trim().toUpperCase();
-    console.log(`Attempting staff login for ID: ${normalizedId}`);
+    console.log(`[AUTH] Attempting staff login for ID: ${normalizedId}`);
+    
     try {
-      // Use direct document get for security and performance
-      const credDoc = await getDocument<any>('staffCredentials', normalizedId);
+      // Step 1: Try direct document lookup (Fastest & most secure)
+      let credDoc: any = null;
+      try {
+        credDoc = await getDocument<any>('staffCredentials', normalizedId);
+      } catch (docErr: any) {
+        console.error("[AUTH] Direct document lookup error:", docErr);
+        // If it's a permission error, we catch it but let the query fallback or final error handle it
+      }
       
+      // Step 2: Fallback to query if direct lookup found nothing
       if (!credDoc) {
-        console.warn(`No credential document found for ID: ${normalizedId}`);
-        throw new Error('Employee ID not found');
+        console.log(`[AUTH] Direct lookup failed for ${normalizedId}, trying collection query fallback...`);
+        const results = await getCollection<any>('staffCredentials', [
+          where('employeeId', '==', normalizedId)
+        ]);
+        if (results && results.length > 0) {
+          credDoc = results[0];
+          console.log(`[AUTH] Query fallback succeeded for ${normalizedId}`);
+        }
+      }
+
+      if (!credDoc) {
+        console.warn(`[AUTH] No credential found for ID: ${normalizedId} after all attempts.`);
+        throw new Error('Employee ID not found. Please ensure the admin profile has been created.');
       }
       
       if (credDoc.password !== pass) {
-        throw new Error('Invalid password');
+        throw new Error('Invalid security password');
       }
 
-      // Fetch the actual user profile linked to this credential
+      // Step 3: Fetch the actual user profile
       const userDoc = await getDocument<UserProfile>('users', credDoc.uid);
       if (!userDoc) {
-        throw new Error('Admin profile corrupted or not found');
+        throw new Error('Admin profile corrupted (User doc missing)');
       }
 
       // NOTE: Prototype implementation for local admin bypass
       setProfile(userDoc);
-      toast.success(`Welcome back, ${userDoc.firstName}!`, { id: toastId });
+      toast.success(`Access Granted: Welcome, ${userDoc.firstName}!`, { id: toastId });
     } catch (error: any) {
-      toast.error(error.message, { id: toastId });
+      console.error("[AUTH] Staff login failed final:", error);
+      const msg = error.message.includes('permission-denied') 
+        ? "Security Error: Permission denied by database." 
+        : error.message;
+      toast.error(msg, { id: toastId });
       throw error;
     }
   };
