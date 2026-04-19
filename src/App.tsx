@@ -7,6 +7,7 @@ import {
   Menu, 
   X, 
   Plus, 
+  Minus,
   Trash2, 
   ChevronRight,
   TrendingDown,
@@ -169,7 +170,8 @@ const CategoryCard = ({ category, isSelected, onClick }: CategoryCardProps) => {
 };
 
 const ProductCard = ({ product, categoryName }: { product: Product, categoryName?: string }) => {
-  const { addItem } = useCart();
+  const { addItem, items, updateQuantity, removeItem } = useCart();
+  const cartItem = items.find(i => i.id === product.id);
   
   return (
     <motion.div
@@ -177,13 +179,7 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4 }}
-      onClick={() => {
-        if (product.stock > 0) {
-          addItem(product);
-          toast.success(`${product.name} added to basket`);
-        }
-      }}
-      className="group bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-xl hover:shadow-gray-100 transition-all duration-300 cursor-pointer"
+      className="group bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-xl hover:shadow-gray-100 transition-all duration-300 relative"
     >
       <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-50 mb-4">
         <img 
@@ -215,6 +211,43 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
           <span className="text-base font-bold text-gray-900">{CURRENCY} {product.price.toFixed(2)}</span>
           {product.unit && <span className="text-[10px] text-gray-400 ml-1">/ {product.unit}</span>}
         </div>
+
+        {cartItem ? (
+          <div className="flex items-center bg-green-50 rounded-full px-2 py-1 gap-2 border border-green-100">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                if (cartItem.quantity > 1) updateQuantity(cartItem.id, cartItem.quantity - 1);
+                else removeItem(cartItem.id);
+              }}
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-green-600 shadow-sm"
+            >
+              <Minus size={12} />
+            </button>
+            <span className="text-sm font-bold text-green-700 min-w-[12px] text-center">{cartItem.quantity}</span>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                updateQuantity(cartItem.id, cartItem.quantity + 1);
+              }}
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-green-600 shadow-sm"
+            >
+              <Plus size={12} />
+            </button>
+          </div>
+        ) : (
+          <button 
+            disabled={product.stock <= 0}
+            onClick={(e) => {
+              e.stopPropagation();
+              addItem(product);
+              toast.success(`${product.name} added to basket`);
+            }}
+            className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center shadow-lg shadow-green-100 transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus size={20} />
+          </button>
+        )}
       </div>
     </motion.div>
   );
@@ -362,8 +395,47 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
   const { items, total, updateQuantity, removeItem, clearCart } = useCart();
   const { profile, login } = useAuth();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'visa' | 'instapay' | 'cash'>('visa');
-  const [address, setAddress] = useState('');
+  const [locating, setLocating] = useState(false);
+  const [addressMode, setAddressMode] = useState<'saved' | 'new'>(profile?.addresses?.length ? 'saved' : 'new');
+  const [selectedAddressIndex, setSelectedAddressIndex] = useState(0);
+  const [newAddress, setNewAddress] = useState<Address>({
+    label: 'Other',
+    street: '',
+    building: '',
+    apartment: '',
+    floor: '',
+    city: '',
+    state: '',
+    country: 'Egypt',
+    formattedAddress: ''
+  });
+  const [paymentMethod, setPaymentMethod] = useState<'visa' | 'instapay' | 'cash'>('cash');
+
+  const getGeoLocation = () => {
+    setLocating(true);
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      setLocating(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setNewAddress(prev => ({ 
+          ...prev, 
+          latitude, 
+          longitude,
+          street: prev.street || 'Located via GPS'
+        }));
+        toast.success("Location pinned successfully!");
+        setLocating(false);
+      },
+      () => {
+        toast.error("Unable to retrieve your location.");
+        setLocating(false);
+      }
+    );
+  };
 
   const handleCheckout = async () => {
     if (!profile) {
@@ -371,8 +443,13 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
       login();
       return;
     }
-    if (!address) {
-      toast.error("Please enter a delivery address");
+
+    const deliveryAddress = addressMode === 'saved' && profile.addresses 
+      ? profile.addresses[selectedAddressIndex]
+      : { ...newAddress, formattedAddress: `${newAddress.building}, ${newAddress.street}, ${newAddress.city}, ${newAddress.country}` };
+
+    if (addressMode === 'new' && (!newAddress.street || !newAddress.building || !newAddress.city)) {
+      toast.error("Please fill in all required address fields");
       return;
     }
 
@@ -380,11 +457,13 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
     try {
       const orderData = {
         userId: profile.uid,
+        userName: `${profile.firstName} ${profile.lastName}`,
         items: items.map(i => ({ productId: i.id, name: i.name, quantity: i.quantity, price: i.price })),
         total,
         status: 'pending',
         paymentMethod,
-        deliveryAddress: address,
+        deliveryAddress: deliveryAddress.formattedAddress,
+        addressData: deliveryAddress,
         createdAt: Timestamp.now()
       };
       
@@ -501,18 +580,101 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Delivery Address</label>
-                <Input 
-                  placeholder="Enter your full address" 
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="rounded-xl"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Payment Method</label>
-                <Select value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)}>
+              <div className="space-y-4 pt-4 border-t border-gray-100">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <MapPin className="text-green-600" size={16} />
+                    Delivery Location
+                  </label>
+                  
+                  <div className="flex gap-2 p-1 bg-gray-50 rounded-xl">
+                    <button 
+                      onClick={() => setAddressMode('saved')}
+                      disabled={!profile?.addresses?.length}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                        addressMode === 'saved' 
+                        ? 'bg-white text-green-600 shadow-sm' 
+                        : 'text-gray-400 hover:text-gray-600'
+                      } ${!profile?.addresses?.length && 'opacity-30 cursor-not-allowed'}`}
+                    >
+                      Saved Addresses
+                    </button>
+                    <button 
+                      onClick={() => setAddressMode('new')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                        addressMode === 'new' 
+                        ? 'bg-white text-green-600 shadow-sm' 
+                        : 'text-gray-400 hover:text-gray-600'
+                      }`}
+                    >
+                      New Address
+                    </button>
+                  </div>
+
+                  {addressMode === 'saved' && profile?.addresses && (
+                    <div className="space-y-2">
+                      {profile.addresses.map((addr, idx) => (
+                        <div 
+                          key={idx}
+                          onClick={() => setSelectedAddressIndex(idx)}
+                          className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                            selectedAddressIndex === idx ? 'border-green-500 bg-green-50/50' : 'border-gray-50 bg-white hover:border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-black uppercase text-green-600 tracking-tighter">{addr.label}</span>
+                            {selectedAddressIndex === idx && <CheckCircle size={14} className="text-green-600" />}
+                          </div>
+                          <p className="text-xs text-gray-700 leading-tight">{addr.formattedAddress}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {addressMode === 'new' && (
+                    <div className="space-y-4">
+                      <Button 
+                        type="button"
+                        variant="ghost"
+                        onClick={getGeoLocation}
+                        disabled={locating}
+                        className="w-full h-10 border-2 border-dashed border-gray-200 text-gray-500 hover:border-green-500 hover:text-green-600 rounded-xl text-xs gap-2"
+                      >
+                        {locating ? <Loader2 className="animate-spin" size={14} /> : <Navigation size={14} />}
+                        Pin Current Location
+                      </Button>
+                      <div className="space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Street</label>
+                            <Input className="h-9 text-xs rounded-lg border-white bg-white/50" value={newAddress.street} onChange={e => setNewAddress({...newAddress, street: e.target.value})} />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Building</label>
+                            <Input className="h-9 text-xs rounded-lg border-white bg-white/50" value={newAddress.building} onChange={e => setNewAddress({...newAddress, building: e.target.value})} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">City</label>
+                            <Input className="h-9 text-xs rounded-lg border-white bg-white/50" value={newAddress.city} onChange={e => setNewAddress({...newAddress, city: e.target.value})} />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">State</label>
+                            <Input className="h-9 text-xs rounded-lg border-white bg-white/50" value={newAddress.state} onChange={e => setNewAddress({...newAddress, state: e.target.value})} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <CreditCard className="text-green-600" size={16} />
+                    Payment Method
+                  </label>
+                  <Select value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)}>
                   <SelectTrigger className="rounded-xl h-12 border-gray-200 bg-white px-4 flex items-center justify-between">
                     <SelectValue className="text-sm text-gray-700" placeholder="Select payment" />
                   </SelectTrigger>
@@ -524,6 +686,7 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
                 </Select>
               </div>
             </div>
+          </div>
           </CardContent>
           <CardFooter>
             <Button 
