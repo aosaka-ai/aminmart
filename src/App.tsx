@@ -122,7 +122,7 @@ const Navbar = ({ setView, currentView }: { setView: (v: string) => void, curren
   );
 };
 
-const ProductCard = ({ product }: { product: Product }) => {
+const ProductCard = ({ product, categoryName }: { product: Product, categoryName?: string }) => {
   const { addItem } = useCart();
   
   return (
@@ -130,7 +130,14 @@ const ProductCard = ({ product }: { product: Product }) => {
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-xl hover:shadow-gray-100 transition-all duration-300"
+      whileHover={{ y: -4 }}
+      onClick={() => {
+        if (product.stock > 0) {
+          addItem(product);
+          toast.success(`${product.name} added to basket`);
+        }
+      }}
+      className="group bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-xl hover:shadow-gray-100 transition-all duration-300 cursor-pointer"
     >
       <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-50 mb-4">
         <img 
@@ -140,8 +147,8 @@ const ProductCard = ({ product }: { product: Product }) => {
           referrerPolicy="no-referrer"
         />
         {product.isHotDeal && (
-          <Badge className="absolute top-2 left-2 bg-orange-500 border-none">
-            <TrendingDown size={12} className="mr-1" /> Hot Deal
+          <Badge className="absolute top-2 left-2 bg-orange-500 border-none px-2 py-0.5 text-[10px]">
+            <TrendingDown size={10} className="mr-1" /> Hot Deal
           </Badge>
         )}
         {product.stock <= 0 && (
@@ -152,26 +159,16 @@ const ProductCard = ({ product }: { product: Product }) => {
       </div>
       
       <div className="space-y-1">
-        <h3 className="font-semibold text-gray-900 line-clamp-1">{product.name}</h3>
-        <p className="text-xs text-gray-500 line-clamp-2 h-8">{product.description}</p>
+        <h3 className="text-[10px] uppercase tracking-wider font-bold text-green-600 mb-1">{categoryName || 'General'}</h3>
+        <p className="font-semibold text-gray-900 line-clamp-1 text-sm">{product.name}</p>
+        <p className="text-[11px] text-gray-500 line-clamp-2 h-8 leading-tight">{product.description}</p>
       </div>
 
       <div className="mt-4 flex items-center justify-between">
         <div>
-          <span className="text-lg font-bold text-green-600">{CURRENCY} {product.price.toFixed(2)}</span>
+          <span className="text-base font-bold text-gray-900">{CURRENCY} {product.price.toFixed(2)}</span>
           {product.unit && <span className="text-[10px] text-gray-400 ml-1">/ {product.unit}</span>}
         </div>
-        <Button 
-          size="sm" 
-          disabled={product.stock <= 0}
-          onClick={() => {
-            addItem(product);
-            toast.success(`${product.name} added to basket`);
-          }}
-          className="rounded-full bg-green-600 hover:bg-green-700"
-        >
-          <Plus size={16} />
-        </Button>
       </div>
     </motion.div>
   );
@@ -202,66 +199,89 @@ const HomeView = () => {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 py-8 space-y-12">
       {/* Hero Section */}
-      <div className="relative rounded-3xl overflow-hidden bg-green-600 h-[300px] flex items-center px-8 sm:px-16">
-        <div className="relative z-10 max-w-lg space-y-4">
-          <Badge className="bg-white/20 text-white border-none backdrop-blur-md">Fresh & Organic</Badge>
-          <h1 className="text-4xl sm:text-5xl font-bold text-white leading-tight">
-            Get Fresh Groceries <br /> Delivered to Your Door
+      <div className="relative rounded-[2.5rem] overflow-hidden bg-green-600 h-[350px] flex items-center px-8 sm:px-16 shadow-2xl shadow-green-100">
+        <div className="relative z-10 max-w-lg space-y-6">
+          <Badge className="bg-white/20 text-white border-none backdrop-blur-md px-4 py-1.5 text-xs font-medium uppercase tracking-widest">
+            Premium Selection
+          </Badge>
+          <h1 className="text-5xl sm:text-6xl font-bold text-white leading-[1.1] tracking-tight">
+            Freshness <br /> redefined.
           </h1>
-          <p className="text-green-100 text-lg">Quality products from local farms at the best prices.</p>
+          <p className="text-green-50 text-xl font-light leading-relaxed opacity-90">Experience the finest local produce delivered directly to your doorstep with AminMart.</p>
         </div>
         <div className="absolute right-0 bottom-0 top-0 w-1/2 hidden lg:block">
           <img 
-            src="https://picsum.photos/seed/groceries/800/600" 
-            className="w-full h-full object-cover opacity-50 mix-blend-overlay"
+            src="https://picsum.photos/seed/groceries/1200/800" 
+            className="w-full h-full object-cover opacity-60 mix-blend-soft-light"
             alt="Hero"
             referrerPolicy="no-referrer"
           />
         </div>
       </div>
 
-      {/* Search & Filter */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+      {/* Search & Categories Bar */}
+      <div className="flex flex-col items-center justify-center space-y-8">
+        <div className="relative w-full max-w-xl group">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-green-600 transition-colors" size={22} />
           <Input 
-            placeholder="Search products..." 
-            className="pl-10 rounded-full border-gray-200 focus:ring-green-500"
+            placeholder="Search our collection..." 
+            className="pl-14 h-16 rounded-[1.25rem] border-none bg-white shadow-2xl shadow-gray-100 focus:ring-2 focus:ring-green-500/20 text-lg placeholder:text-gray-300 transition-all"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-2 w-full sm:w-auto no-scrollbar">
-          <Button 
-            variant={selectedCategory === 'all' ? 'default' : 'outline'} 
+
+        {/* Categories Pills - Refined minimalist rows */}
+        <div className="flex flex-wrap items-center justify-center gap-2 max-w-4xl">
+          <button
             onClick={() => setSelectedCategory('all')}
-            className="rounded-full whitespace-nowrap"
+            className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 ${
+              selectedCategory === 'all' 
+                ? 'bg-green-600 text-white shadow-lg shadow-green-100' 
+                : 'bg-white text-gray-400 hover:text-green-600 shadow-sm border border-gray-100'
+            }`}
           >
-            All
-          </Button>
+            All Collections
+          </button>
           {categories.map(cat => (
-            <Button 
+            <button
               key={cat.id}
-              variant={selectedCategory === cat.id ? 'default' : 'outline'} 
               onClick={() => setSelectedCategory(cat.id)}
-              className="rounded-full whitespace-nowrap flex items-center gap-2"
+              className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${
+                selectedCategory === cat.id 
+                  ? 'bg-green-600 text-white shadow-lg shadow-green-100' 
+                  : 'bg-white text-gray-400 hover:text-green-600 shadow-sm border border-gray-100'
+              }`}
             >
-              {cat.imageUrl && <img src={cat.imageUrl} className="w-4 h-4 rounded-full object-cover" alt="" referrerPolicy="no-referrer" />}
+              {cat.imageUrl && (
+                <img 
+                  src={cat.imageUrl} 
+                  className={`w-3 h-3 rounded-full object-cover transition-all ${selectedCategory === cat.id ? 'brightness-110' : 'grayscale opacity-50'}`} 
+                  alt="" 
+                  referrerPolicy="no-referrer" 
+                />
+              )}
               {cat.name}
-            </Button>
+            </button>
           ))}
         </div>
       </div>
 
       {/* Product Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-        <AnimatePresence>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
+        <AnimatePresence mode="popLayout">
           {filteredProducts.map(product => (
-            <div key={product.id}>
-              <ProductCard product={product} />
-            </div>
+            <motion.div 
+              key={product.id}
+              layout
+            >
+              <ProductCard 
+                product={product} 
+                categoryName={categories.find(c => c.id === product.categoryId)?.name} 
+              />
+            </motion.div>
           ))}
         </AnimatePresence>
       </div>
