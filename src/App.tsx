@@ -16,7 +16,8 @@ import {
   CreditCard,
   Phone,
   LogOut,
-  Settings
+  Calendar,
+  Lock,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './AuthProvider';
@@ -103,7 +104,7 @@ const Navbar = ({ setView, currentView }: { setView: (v: string) => void, curren
             {profile ? (
               <div className="flex items-center gap-2">
                 <div className="hidden sm:block text-right">
-                  <p className="text-xs font-semibold text-gray-900">{profile.displayName || 'User'}</p>
+                  <p className="text-xs font-semibold text-gray-900">{profile.firstName ? `${profile.firstName} ${profile.lastName}` : profile.displayName || 'User'}</p>
                   <p className="text-[10px] text-gray-500 capitalize">{profile.role}</p>
                 </div>
                 <Button variant="ghost" size="icon" onClick={logout}>
@@ -111,9 +112,14 @@ const Navbar = ({ setView, currentView }: { setView: (v: string) => void, curren
                 </Button>
               </div>
             ) : (
-              <Button onClick={login} className="bg-green-600 hover:bg-green-700 text-white rounded-full px-6">
-                Login
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" onClick={() => setView('login')} className="text-gray-600 hidden sm:flex">
+                  Login
+                </Button>
+                <Button onClick={() => setView('register')} className="bg-green-600 hover:bg-green-700 text-white rounded-full px-6">
+                  Register
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -886,6 +892,247 @@ const AdminView = () => {
   );
 };
 
+const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => void, mode?: 'register' | 'login' }) => {
+  const { register, loginWithEmail, login: loginWithGoogle } = useAuth();
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    mobile: '',
+    birthDate: '',
+    gender: 'male' as 'male' | 'female',
+    password: ''
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (mode === 'register') {
+        await register(formData.email, formData.password, formData);
+        setView('verification');
+      } else {
+        await loginWithEmail(formData.email, formData.password);
+        setView('home');
+      }
+    } catch (err) {
+      // Error handled in provider
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto px-4 py-12">
+      <Card className="border-none shadow-2xl shadow-gray-100 rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="bg-green-600 text-white p-10 text-center space-y-2">
+          <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-md">
+            <User size={32} />
+          </div>
+          <CardTitle className="text-3xl font-bold">{mode === 'register' ? 'Create Account' : 'Welcome Back'}</CardTitle>
+          <CardDescription className="text-green-100 italic">
+            {mode === 'register' ? 'Join AminMart for the freshest groceries' : 'Login to your boutique grocery store'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-10 space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 text-left">
+            {mode === 'register' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">First Name</label>
+                  <Input 
+                    required 
+                    placeholder="John" 
+                    className="rounded-xl border-gray-100 bg-gray-50/50"
+                    value={formData.firstName}
+                    onChange={e => setFormData({...formData, firstName: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Last Name</label>
+                  <Input 
+                    required 
+                    placeholder="Doe" 
+                    className="rounded-xl border-gray-100 bg-gray-50/50"
+                    value={formData.lastName}
+                    onChange={e => setFormData({...formData, lastName: e.target.value})}
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Email Address</label>
+              <Input 
+                type="email" 
+                required 
+                placeholder="john@example.com" 
+                className="rounded-xl border-gray-100 bg-gray-50/50"
+                value={formData.email}
+                onChange={e => setFormData({...formData, email: e.target.value})}
+              />
+            </div>
+
+            {mode === 'register' && (
+              <>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Mobile Number</label>
+                  <Input 
+                    required 
+                    placeholder="+20 123 456 7890" 
+                    className="rounded-xl border-gray-100 bg-gray-50/50"
+                    value={formData.mobile}
+                    onChange={e => setFormData({...formData, mobile: e.target.value})}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Birth Date</label>
+                    <Input 
+                      type="date" 
+                      required 
+                      className="rounded-xl border-gray-100 bg-gray-50/50"
+                      value={formData.birthDate}
+                      onChange={e => setFormData({...formData, birthDate: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Gender</label>
+                    <Select 
+                      defaultValue="male" 
+                      onValueChange={(v: any) => setFormData({...formData, gender: v})}
+                    >
+                      <SelectTrigger className="rounded-xl border-gray-100 bg-gray-50/50">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Password</label>
+              <Input 
+                type="password" 
+                required 
+                placeholder="••••••••" 
+                className="rounded-xl border-gray-100 bg-gray-50/50"
+                value={formData.password}
+                onChange={e => setFormData({...formData, password: e.target.value})}
+              />
+            </div>
+
+            <Button disabled={loading} className="w-full h-12 bg-green-600 hover:bg-green-700 rounded-full text-white font-bold shadow-xl shadow-green-100 mt-4">
+              {loading ? <Loader2 className="animate-spin" /> : (mode === 'register' ? 'Create Account' : 'Login')}
+            </Button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center"><Separator /></div>
+            <div className="relative flex justify-center text-[10px] uppercase font-bold text-gray-400">
+              <span className="bg-white px-4">Or continue with</span>
+            </div>
+          </div>
+
+          <Button variant="outline" onClick={() => loginWithGoogle()} className="w-full h-12 rounded-full border-gray-100 hover:bg-gray-50 font-semibold gap-3 flex items-center justify-center">
+            <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z" fill="#EA4335"/>
+            </svg>
+            Sign in with Google
+          </Button>
+
+          <p className="text-center text-sm text-gray-500">
+            {mode === 'register' ? 'Already have an account?' : "Don't have an account?"}
+            <button 
+              onClick={() => setView(mode === 'register' ? 'login' : 'register')}
+              className="ml-1 text-green-600 font-bold hover:underline"
+            >
+              {mode === 'register' ? 'Login' : 'Register'}
+            </button>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+const VerificationView = ({ setView }: { setView: (v: string) => void }) => {
+  const { profile, updateProfile } = useAuth();
+  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [loading, setLoading] = useState(false);
+
+  const handleVerify = async () => {
+    setLoading(true);
+    // Simulation: Any 6 digits work for demo
+    setTimeout(async () => {
+      try {
+        await updateProfile({ isVerified: true });
+        toast.success('Identity verified!');
+        setView('home');
+      } finally {
+        setLoading(false);
+      }
+    }, 1500);
+  };
+
+  return (
+    <div className="max-w-md mx-auto px-4 py-20">
+      <Card className="border-none shadow-2xl shadow-gray-100 rounded-[2.5rem] overflow-hidden text-center">
+        <CardHeader className="p-10 space-y-4">
+          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
+            <Lock size={32} />
+          </div>
+          <CardTitle className="text-3xl font-bold">Verify Identity</CardTitle>
+          <CardDescription className="text-gray-500">
+            We sent a 6-digit code to <b>{profile?.email || profile?.mobile}</b>. <br />Please enter it below to continue.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-10 space-y-8">
+          <div className="flex justify-center gap-2">
+            {code.map((digit, i) => (
+              <input
+                key={i}
+                type="text"
+                maxLength={1}
+                className="w-10 h-14 text-center text-2xl font-bold bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-green-500 transition-all outline-none"
+                value={digit}
+                onChange={(e) => {
+                  const newCode = [...code];
+                  newCode[i] = e.target.value.slice(-1);
+                  setCode(newCode);
+                  if (e.target.value && i < 5) {
+                    const next = e.target.nextElementSibling as HTMLInputElement;
+                    if (next) next.focus();
+                  }
+                }}
+              />
+            ))}
+          </div>
+          <Button 
+            disabled={loading || code.some(d => !d)} 
+            onClick={handleVerify}
+            className="w-full h-12 bg-green-600 hover:bg-green-700 rounded-full text-white font-bold shadow-xl shadow-green-100"
+          >
+            {loading ? <Loader2 className="animate-spin" /> : 'Verify & Continue'}
+          </Button>
+          <p className="text-sm text-gray-400">
+            Didn't receive the code? <button className="text-green-600 font-bold hover:underline">Resend</button>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 const OrdersView = () => {
   const { profile } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -955,7 +1202,14 @@ const OrdersView = () => {
 export default function App() {
   console.log("App.tsx: Rendering App component, loading:", useAuth().loading);
   const [view, setView] = useState('home');
-  const { loading } = useAuth();
+  const { profile, loading } = useAuth();
+
+  // Redirect to verification if not verified
+  useEffect(() => {
+    if (profile && !profile.isVerified && view !== 'verification') {
+      setView('verification');
+    }
+  }, [profile, view]);
 
   if (loading) {
     return (
@@ -979,15 +1233,18 @@ export default function App() {
         <AnimatePresence mode="wait">
           <motion.div
             key={view}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.2 }}
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
           >
             {view === 'home' && <HomeView />}
             {view === 'cart' && <CartView setView={setView} />}
             {view === 'admin' && <AdminView />}
             {view === 'orders' && <OrdersView />}
+            {view === 'register' && <RegisterView setView={setView} mode="register" />}
+            {view === 'login' && <RegisterView setView={setView} mode="login" />}
+            {view === 'verification' && <VerificationView setView={setView} />}
           </motion.div>
         </AnimatePresence>
       </main>

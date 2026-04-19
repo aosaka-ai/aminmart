@@ -23,7 +23,13 @@ export interface UserProfile {
   email?: string;
   phoneNumber?: string;
   displayName?: string;
+  firstName?: string;
+  lastName?: string;
+  birthDate?: string;
+  mobile?: string;
+  gender?: 'male' | 'female';
   role: 'admin' | 'customer';
+  isVerified?: boolean;
   addresses?: { label: string; address: string }[];
 }
 

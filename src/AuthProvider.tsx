@@ -1,9 +1,19 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, User, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
+import { 
+  onAuthStateChanged, 
+  User, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signInWithRedirect, 
+  getRedirectResult, 
+  signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
+} from 'firebase/auth';
 import { auth, db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { UserProfile } from './types';
-import { getDocument, createDocument } from './lib/firebase-utils';
+import { getDocument, createDocument, updateDocument } from './lib/firebase-utils';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -11,6 +21,9 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   login: () => Promise<void>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
+  register: (email: string, pass: string, data: Partial<UserProfile>) => Promise<void>;
+  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -98,25 +111,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const toastId = toast.loading('Opening Google login...');
     try {
       const provider = new GoogleAuthProvider();
-      
-      // On some mobile devices, popups are strictly blocked.
-      // We can try popup first, and if it fails, the error handler will catch it.
       await signInWithPopup(auth, provider);
       toast.success('Logged in successfully', { id: toastId });
     } catch (error: any) {
       console.error('Login error:', error);
-      
       if (error.code === 'auth/popup-blocked') {
-        toast.info('Popup blocked. Trying redirect method...', { id: toastId });
         const provider = new GoogleAuthProvider();
         await signInWithRedirect(auth, provider);
-      } else if (error.code === 'auth/unauthorized-domain') {
-        toast.error('This domain is not authorized in Firebase. Please add aosaka-ai.github.io to authorized domains in Firebase Console.', { id: toastId });
-      } else if (error.code === 'auth/network-request-failed') {
-        toast.error('Network error: Firebase could not be reached. This is often caused by ad-blockers, VPNs, or network restrictions. Please disable ad-blockers and try again.', { id: toastId, duration: 6000 });
       } else {
         toast.error('Failed to login: ' + (error.message || 'Unknown error'), { id: toastId });
       }
+    }
+  };
+
+  const loginWithEmail = async (email: string, pass: string) => {
+    const toastId = toast.loading('Logging in...');
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      toast.success('Welcome back!', { id: toastId });
+    } catch (error: any) {
+      toast.error(error.message, { id: toastId });
+      throw error;
+    }
+  };
+
+  const register = async (email: string, pass: string, data: Partial<UserProfile>) => {
+    const toastId = toast.loading('Creating account...');
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      const newProfile: UserProfile = {
+        uid: cred.user.uid,
+        email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        birthDate: data.birthDate,
+        mobile: data.mobile,
+        gender: data.gender,
+        role: 'customer',
+        isVerified: false,
+        addresses: []
+      };
+      await createDocument('users', newProfile, cred.user.uid);
+      setProfile(newProfile);
+      toast.success('Account created! Please verify your email/mobile.', { id: toastId });
+    } catch (error: any) {
+      toast.error(error.message, { id: toastId });
+      throw error;
+    }
+  };
+
+  const updateProfile = async (data: Partial<UserProfile>) => {
+    if (!user) return;
+    try {
+      await updateDocument('users', user.uid, data);
+      toast.success('Profile updated');
+    } catch (error: any) {
+      toast.error('Failed to update profile');
+      throw error;
     }
   };
 
@@ -125,7 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, loginWithEmail, register, updateProfile, logout }}>
       {children}
     </AuthContext.Provider>
   );
