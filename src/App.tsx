@@ -122,6 +122,38 @@ const Navbar = ({ setView, currentView }: { setView: (v: string) => void, curren
   );
 };
 
+interface CategoryCardProps {
+  category: Category;
+  isSelected: boolean;
+  onClick: () => void;
+  key?: React.Key;
+}
+
+const CategoryCard = ({ category, isSelected, onClick }: CategoryCardProps) => {
+  return (
+    <motion.div
+      whileHover={{ y: -4, scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className={`relative group cursor-pointer overflow-hidden rounded-[2rem] aspect-[4/5] transition-all duration-500 ${
+        isSelected ? 'ring-2 ring-green-600 ring-offset-4' : 'hover:shadow-2xl hover:shadow-gray-200'
+      }`}
+    >
+      <img 
+        src={category.imageUrl || `https://picsum.photos/seed/${category.name}/400/500`} 
+        alt={category.name}
+        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+        referrerPolicy="no-referrer"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
+      <div className="absolute bottom-6 left-6 right-6">
+        <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-green-400 mb-1 opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300">Explore</p>
+        <h3 className="text-xl font-bold text-white tracking-tight">{category.name}</h3>
+      </div>
+    </motion.div>
+  );
+};
+
 const ProductCard = ({ product, categoryName }: { product: Product, categoryName?: string }) => {
   const { addItem } = useCart();
   
@@ -179,7 +211,7 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
 const HomeView = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -193,7 +225,7 @@ const HomeView = () => {
   }, []);
 
   const filteredProducts = products.filter(p => {
-    const matchesCategory = selectedCategory === 'all' || p.categoryId === selectedCategory;
+    const matchesCategory = !selectedCategory || p.categoryId === selectedCategory;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
@@ -221,8 +253,8 @@ const HomeView = () => {
         </div>
       </div>
 
-      {/* Search & Categories Bar */}
-      <div className="flex flex-col items-center justify-center space-y-8">
+      {/* Search Bar */}
+      <div className="flex flex-col items-center justify-center space-y-12">
         <div className="relative w-full max-w-xl group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-green-600 transition-colors" size={22} />
           <Input 
@@ -233,65 +265,79 @@ const HomeView = () => {
           />
         </div>
 
-        {/* Categories Pills - Refined minimalist rows */}
-        <div className="flex flex-wrap items-center justify-center gap-2 max-w-4xl">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 ${
-              selectedCategory === 'all' 
-                ? 'bg-green-600 text-white shadow-lg shadow-green-100' 
-                : 'bg-white text-gray-400 hover:text-green-600 shadow-sm border border-gray-100'
-            }`}
-          >
-            All Collections
-          </button>
-          {categories.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${
-                selectedCategory === cat.id 
-                  ? 'bg-green-600 text-white shadow-lg shadow-green-100' 
-                  : 'bg-white text-gray-400 hover:text-green-600 shadow-sm border border-gray-100'
-              }`}
-            >
-              {cat.imageUrl && (
-                <img 
-                  src={cat.imageUrl} 
-                  className={`w-3 h-3 rounded-full object-cover transition-all ${selectedCategory === cat.id ? 'brightness-110' : 'grayscale opacity-50'}`} 
-                  alt="" 
-                  referrerPolicy="no-referrer" 
+        {/* Categories Visual Grid - Main Home Experience */}
+        {!selectedCategory && !searchQuery && (
+          <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <h2 className="text-3xl font-bold text-gray-900 tracking-tight text-center">Homegrown Collections</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8">
+              {categories.map(cat => (
+                <CategoryCard 
+                  key={cat.id} 
+                  category={cat} 
+                  isSelected={false}
+                  onClick={() => setSelectedCategory(cat.id)}
                 />
-              )}
-              {cat.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Product Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-        <AnimatePresence mode="popLayout">
-          {filteredProducts.map(product => (
-            <motion.div 
-              key={product.id}
-              layout
-            >
-              <ProductCard 
-                product={product} 
-                categoryName={categories.find(c => c.id === product.categoryId)?.name} 
-              />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
-
-      {filteredProducts.length === 0 && (
-        <div className="text-center py-20 space-y-4">
-          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto text-gray-400">
-            <Search size={32} />
+              ))}
+            </div>
           </div>
-          <p className="text-gray-500 font-medium">No products found matching your criteria.</p>
+        )}
+      </div>
+
+      {/* Product Results - Shown only when investigating a category or searching */}
+      {(selectedCategory || searchQuery) && (
+        <div className="space-y-8 pt-4">
+          <div className="flex items-baseline justify-between border-b border-gray-100 pb-4">
+            <div className="flex items-center gap-4">
+              {selectedCategory && (
+                <button 
+                  onClick={() => setSelectedCategory(null)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X size={20} className="text-gray-400" />
+                </button>
+              )}
+              <h2 className="text-3xl font-bold text-gray-900 tracking-tight">
+                {searchQuery ? `Search: ${searchQuery}` : categories.find(c => c.id === selectedCategory)?.name}
+              </h2>
+            </div>
+            <p className="text-sm text-gray-400 font-medium">{filteredProducts.length} items</p>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
+            <AnimatePresence mode="popLayout">
+              {filteredProducts.map(product => (
+                <motion.div 
+                  key={product.id}
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                >
+                  <ProductCard 
+                    product={product} 
+                    categoryName={categories.find(c => c.id === product.categoryId)?.name} 
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+          
+          {filteredProducts.length === 0 && (
+            <div className="text-center py-20 px-4 bg-white rounded-[2rem] shadow-sm">
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto text-gray-300 mb-4">
+                <Search size={24} />
+              </div>
+              <h3 className="text-gray-900 font-semibold">No products found</h3>
+              <p className="text-gray-400 text-sm mt-1">Try a different search term or category.</p>
+              <Button 
+                variant="outline" 
+                className="mt-6 rounded-xl"
+                onClick={() => { setSelectedCategory(null); setSearchQuery(''); }}
+              >
+                Return to Categories
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
