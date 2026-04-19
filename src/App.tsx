@@ -411,6 +411,12 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
   });
   const [paymentMethod, setPaymentMethod] = useState<'visa' | 'instapay' | 'cash'>('cash');
 
+  useEffect(() => {
+    if (profile?.addresses?.length) {
+      setAddressMode('saved');
+    }
+  }, [profile]);
+
   const getGeoLocation = () => {
     setLocating(true);
     if (!navigator.geolocation) {
@@ -444,12 +450,12 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
       return;
     }
 
-    const deliveryAddress = addressMode === 'saved' && profile.addresses 
+    const deliveryAddress = addressMode === 'saved' && profile.addresses && profile.addresses.length > 0
       ? profile.addresses[selectedAddressIndex]
       : { ...newAddress, formattedAddress: `${newAddress.building}, ${newAddress.street}, ${newAddress.city}, ${newAddress.country}` };
 
-    if (addressMode === 'new' && (!newAddress.street || !newAddress.building || !newAddress.city)) {
-      toast.error("Please fill in all required address fields");
+    if (!deliveryAddress || (addressMode === 'new' && (!newAddress.street || !newAddress.building || !newAddress.city))) {
+      toast.error("Please provide a valid delivery address");
       return;
     }
 
@@ -467,18 +473,36 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
         createdAt: Timestamp.now()
       };
       
+      console.log("Creating order:", orderData);
       await createDocument('orders', orderData);
       
       // Update stock
       for (const item of items) {
-        await updateDocument('products', item.id, { stock: item.stock - item.quantity });
+        if (typeof item.stock === 'number') {
+          await updateDocument('products', item.id, { stock: item.stock - item.quantity });
+        }
       }
 
       clearCart();
       toast.success("Order placed successfully!");
       setView('orders');
-    } catch (error) {
-      toast.error("Checkout failed. Please try again.");
+    } catch (error: any) {
+      console.error("Checkout detail error:", error);
+      let errorMessage = "Checkout failed. Please try again.";
+      
+      try {
+        // Try to parse our internal FirestoreErrorInfo if it's there
+        const errInfo = JSON.parse(error.message);
+        if (errInfo.error?.includes('permission-denied')) {
+          errorMessage = "Permission denied. Please ensure your account is verified.";
+        } else {
+          errorMessage = `Error: ${errInfo.error || error.message}`;
+        }
+      } catch (e) {
+        errorMessage = error.message || errorMessage;
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsCheckingOut(false);
     }
