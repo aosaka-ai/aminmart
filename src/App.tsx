@@ -741,6 +741,9 @@ const AdminView = () => {
   const [uploading, setUploading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [isAdminDialogOpen, setIsAdminDialogOpen] = useState(false);
+  const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editUserData, setEditUserData] = useState<Partial<UserProfile>>({});
   const [newAdmin, setNewAdmin] = useState<Partial<UserProfile>>({
     firstName: '',
     lastName: '',
@@ -850,6 +853,44 @@ const AdminView = () => {
       toast.success(`User role updated to ${newRole}`);
     } catch (err) {
       toast.error("Failed to update user role");
+    }
+  };
+
+  const startEditUser = (user: UserProfile) => {
+    setEditingUser(user);
+    setEditUserData({ ...user });
+    setIsEditUserDialogOpen(true);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+    try {
+      await updateDocument('users', editingUser.uid, editUserData);
+      toast.success("User profile updated");
+      setIsEditUserDialogOpen(false);
+      setEditingUser(null);
+    } catch (error: any) {
+      toast.error(`Update failed: ${error.message}`);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
+    try {
+      await removeDocument('users', userId);
+      toast.success("User deleted successfully");
+    } catch (error: any) {
+      toast.error(`Delete failed: ${error.message}`);
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("Are you sure you want to delete this order?")) return;
+    try {
+      await removeDocument('orders', orderId);
+      toast.success("Order deleted successfully");
+    } catch (error: any) {
+      toast.error(`Delete failed: ${error.message}`);
     }
   };
 
@@ -1089,13 +1130,23 @@ const AdminView = () => {
                     <CardTitle className="text-sm">Order #{order.id.slice(-6)}</CardTitle>
                     <CardDescription>{order.createdAt?.toDate().toLocaleString()}</CardDescription>
                   </div>
-                  <Badge className={
-                    order.status === 'delivered' ? 'bg-green-500' : 
-                    order.status === 'out-for-delivery' ? 'bg-blue-500' : 
-                    order.status === 'confirmed' ? 'bg-orange-500' : 'bg-gray-500'
-                  }>
-                    {order.status}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={
+                      order.status === 'delivered' ? 'bg-green-500' : 
+                      order.status === 'out-for-delivery' ? 'bg-blue-500' : 
+                      order.status === 'confirmed' ? 'bg-orange-500' : 'bg-gray-500'
+                    }>
+                      {order.status}
+                    </Badge>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => handleDeleteOrder(order.id)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="pb-2">
@@ -1232,6 +1283,81 @@ const AdminView = () => {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
+                <DialogContent className="sm:max-w-[425px] bg-white">
+                  <DialogHeader>
+                    <DialogTitle>Edit User Profile</DialogTitle>
+                    <DialogDescription>
+                      Modify account details for {editUserData.firstName} {editUserData.lastName}.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase text-gray-400">First Name</label>
+                        <Input 
+                          value={editUserData.firstName || ''} 
+                          onChange={e => setEditUserData({...editUserData, firstName: e.target.value})} 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase text-gray-400">Last Name</label>
+                        <Input 
+                          value={editUserData.lastName || ''} 
+                          onChange={e => setEditUserData({...editUserData, lastName: e.target.value})} 
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase text-gray-400">Email Address</label>
+                      <Input 
+                        value={editUserData.email || ''} 
+                        onChange={e => setEditUserData({...editUserData, email: e.target.value})} 
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase text-gray-400">Mobile</label>
+                      <Input 
+                        value={editUserData.mobile || ''} 
+                        onChange={e => setEditUserData({...editUserData, mobile: e.target.value})} 
+                      />
+                    </div>
+                    {editUserData.role === 'admin' && (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase text-gray-400">Position</label>
+                            <Input 
+                              value={editUserData.position || ''} 
+                              onChange={e => setEditUserData({...editUserData, position: e.target.value})} 
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase text-gray-400">Dept.</label>
+                            <Input 
+                              value={editUserData.department || ''} 
+                              onChange={e => setEditUserData({...editUserData, department: e.target.value})} 
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold uppercase text-gray-400">Employee ID</label>
+                          <Input 
+                            value={editUserData.employeeId || ''} 
+                            onChange={e => setEditUserData({...editUserData, employeeId: e.target.value})} 
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <DialogFooter className="gap-2">
+                    <Button variant="outline" onClick={() => setIsEditUserDialogOpen(false)} className="flex-1">Cancel</Button>
+                    <Button onClick={handleUpdateUser} className="flex-1 bg-green-600 hover:bg-green-700 font-bold text-white">
+                      Save Changes
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -1255,6 +1381,14 @@ const AdminView = () => {
                         </div>
                       </div>
                       <div className="flex gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => startEditUser(u)}
+                          className="text-gray-500 hover:text-gray-900 border-gray-100 h-8 w-8"
+                        >
+                          <Edit2 size={14} />
+                        </Button>
                         {u.email !== 'a.osaka@gmail.com' && (
                           <Button 
                             variant="outline" 
@@ -1316,12 +1450,28 @@ const AdminView = () => {
                         </Badge>
                       </div>
                     </div>
-                    <div>
+                    <div className="flex gap-2 items-center">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => startEditUser(u)}
+                        className="text-gray-500 hover:text-gray-900 border-gray-100 h-8 w-8"
+                      >
+                        <Edit2 size={14} />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleDeleteUser(u.uid)}
+                        className="text-red-500 hover:text-red-700 border-red-100 h-8 w-8"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
                       <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => toggleUserRole(u.uid, u.role)}
-                        className="text-purple-600 hover:text-purple-700 border-purple-100"
+                        className="text-purple-600 hover:text-purple-700 border-purple-100 h-8"
                       >
                         Make Admin
                       </Button>

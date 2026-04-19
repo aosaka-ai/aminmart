@@ -101,7 +101,7 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
       allow update: if isAdmin(); // Only admin can update status
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
   }
 }
