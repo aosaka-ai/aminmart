@@ -53,7 +53,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { collection, onSnapshot, query, orderBy, Timestamp, where } from 'firebase/firestore';
 import { db } from './firebase';
-import { Category, Product, Order, Address } from './types';
+import { Category, Product, Order, Address, UserProfile } from './types';
 import { createDocument, updateDocument, removeDocument, uploadFile } from './lib/firebase-utils';
 import { Camera, Edit2, Loader2, RefreshCw } from 'lucide-react';
 
@@ -731,6 +731,7 @@ const AdminView = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   
   // Form states
   const [newCat, setNewCat] = useState<Partial<Category>>({ name: '', slug: '', icon: '', imageUrl: '' });
@@ -739,6 +740,20 @@ const AdminView = () => {
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [isAdminDialogOpen, setIsAdminDialogOpen] = useState(false);
+  const [newAdmin, setNewAdmin] = useState<Partial<UserProfile>>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    mobile: '',
+    position: '',
+    employeeId: '',
+    department: '',
+    birthDate: '',
+    role: 'admin',
+    isPreRegistered: true,
+    password: ''
+  });
 
   useEffect(() => {
     const unsubCat = onSnapshot(collection(db, 'categories'), (snap) => {
@@ -758,7 +773,12 @@ const AdminView = () => {
     }, (err) => {
       console.error("Orders snapshot error:", err);
     });
-    return () => { unsubCat(); unsubProd(); unsubOrders(); };
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+      setUsers(snap.docs.map(d => ({ ...d.data(), uid: d.id } as UserProfile)));
+    }, (err) => {
+      console.error("Users snapshot error:", err);
+    });
+    return () => { unsubCat(); unsubProd(); unsubOrders(); unsubUsers(); };
   }, []);
 
   const handleImageUpload = async (file: File, path: string) => {
@@ -823,6 +843,49 @@ const AdminView = () => {
     toast.success("Order status updated");
   };
 
+  const toggleUserRole = async (userId: string, currentRole: string) => {
+    const newRole = currentRole === 'admin' ? 'customer' : 'admin';
+    try {
+      await updateDocument('users', userId, { role: newRole });
+      toast.success(`User role updated to ${newRole}`);
+    } catch (err) {
+      toast.error("Failed to update user role");
+    }
+  };
+
+  const handleAddLocalAdmin = async () => {
+    if (!newAdmin.email || !newAdmin.firstName || !newAdmin.lastName || !newAdmin.password || !newAdmin.employeeId) {
+      toast.error("Required: Name, Email, Employee ID, and Password");
+      return;
+    }
+    
+    try {
+      // Create a document with a random ID since we don't have the auth UID yet
+      // The id check in updateDocument/createDocument will handle it
+      await createDocument('users', {
+        ...newAdmin,
+        joinDate: new Date().toISOString().split('T')[0],
+        uid: `pending_${Date.now()}` // Temporary UID
+      });
+      toast.success("Local admin created. They will link to this profile when they register.");
+      setIsAdminDialogOpen(false);
+      setNewAdmin({
+        firstName: '',
+        lastName: '',
+        email: '',
+        mobile: '',
+        position: '',
+        employeeId: '',
+        department: '',
+        birthDate: '',
+        role: 'admin',
+        isPreRegistered: true
+      });
+    } catch (err) {
+      toast.error("Failed to create local admin profile");
+    }
+  };
+
   const clearAllProducts = async () => {
     if (!confirm("Are you sure you want to delete ALL products? This cannot be undone.")) return;
     const toastId = toast.loading("Deleting products...");
@@ -863,10 +926,12 @@ const AdminView = () => {
       </div>
 
       <Tabs defaultValue="products" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 rounded-xl p-1 bg-gray-100">
+        <TabsList className="grid w-full grid-cols-6 rounded-xl p-1 bg-gray-100">
           <TabsTrigger value="products" className="rounded-lg">Inventory</TabsTrigger>
           <TabsTrigger value="categories" className="rounded-lg">Categories</TabsTrigger>
           <TabsTrigger value="orders" className="rounded-lg">Orders</TabsTrigger>
+          <TabsTrigger value="admins" className="rounded-lg">Admins</TabsTrigger>
+          <TabsTrigger value="customers" className="rounded-lg">Customers</TabsTrigger>
           <TabsTrigger value="maintenance" className="rounded-lg">Maintenance</TabsTrigger>
         </TabsList>
 
@@ -1057,6 +1122,217 @@ const AdminView = () => {
           ))}
         </TabsContent>
 
+        <TabsContent value="admins" className="space-y-4 pt-6">
+          <Card className="border-gray-100">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle>Administrator Accounts</CardTitle>
+                <CardDescription>Management and privileged access control.</CardDescription>
+              </div>
+              <Dialog open={isAdminDialogOpen} onOpenChange={setIsAdminDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-purple-600 hover:bg-purple-700">
+                    <Plus className="mr-2 h-4 w-4" /> Add Local Admin
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px] bg-white">
+                  <DialogHeader>
+                    <DialogTitle>Add Local Admin (HR Record)</DialogTitle>
+                    <DialogDescription>
+                      Create a profile for a new administrator. They can link their account by registering with this email.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase text-gray-400">First Name</label>
+                        <Input 
+                          placeholder="First Name" 
+                          value={newAdmin.firstName} 
+                          onChange={e => setNewAdmin({...newAdmin, firstName: e.target.value})} 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase text-gray-400">Last Name</label>
+                        <Input 
+                          placeholder="Last Name" 
+                          value={newAdmin.lastName} 
+                          onChange={e => setNewAdmin({...newAdmin, lastName: e.target.value})} 
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase text-gray-400">Email Address</label>
+                      <Input 
+                        placeholder="email@example.com" 
+                        value={newAdmin.email} 
+                        onChange={e => setNewAdmin({...newAdmin, email: e.target.value})} 
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase text-gray-400">Position</label>
+                        <Input 
+                          placeholder="e.g. Operations Mgr" 
+                          value={newAdmin.position} 
+                          onChange={e => setNewAdmin({...newAdmin, position: e.target.value})} 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase text-gray-400">Dept.</label>
+                        <Input 
+                          placeholder="e.g. Finance" 
+                          value={newAdmin.department} 
+                          onChange={e => setNewAdmin({...newAdmin, department: e.target.value})} 
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase text-gray-400">Employee ID</label>
+                        <Input 
+                          placeholder="EP-001" 
+                          value={newAdmin.employeeId} 
+                          onChange={e => setNewAdmin({...newAdmin, employeeId: e.target.value})} 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase text-gray-400">Mobile</label>
+                        <Input 
+                          placeholder="+20..." 
+                          value={newAdmin.mobile} 
+                          onChange={e => setNewAdmin({...newAdmin, mobile: e.target.value})} 
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase text-gray-400">Birth Date</label>
+                        <Input 
+                          type="date" 
+                          value={newAdmin.birthDate} 
+                          onChange={e => setNewAdmin({...newAdmin, birthDate: e.target.value})} 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase text-gray-400">Login Password</label>
+                        <Input 
+                          type="password"
+                          placeholder="••••••••" 
+                          value={newAdmin.password} 
+                          onChange={e => setNewAdmin({...newAdmin, password: e.target.value})} 
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={handleAddLocalAdmin} className="w-full bg-purple-600 hover:bg-purple-700 font-bold">
+                      Create Admin Profile
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {users.filter(u => u.role === 'admin').map(u => (
+                  <div key={u.uid} className="flex flex-col p-4 bg-purple-50/30 rounded-xl border border-purple-100 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold bg-purple-100 text-purple-600 text-lg">
+                          {u.firstName?.[0] || u.email?.[0]?.toUpperCase() || 'A'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-gray-900 text-lg">{u.firstName} {u.lastName}</p>
+                            {u.isPreRegistered && (
+                              <Badge variant="outline" className="text-[10px] py-0 border-purple-200 text-purple-600 bg-white">
+                                PRE-REGISTERED
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500 italic">{u.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {u.email !== 'a.osaka@gmail.com' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => toggleUserRole(u.uid, u.role)}
+                            className="text-red-600 hover:text-red-700 border-red-100 h-8"
+                          >
+                            Revoke Admin
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {(u.position || u.employeeId || u.department || u.joinDate) && (
+                      <div className="mt-4 pt-4 border-t border-purple-100 grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Position</p>
+                          <p className="text-xs font-medium text-gray-700">{u.position || '-'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Department</p>
+                          <p className="text-xs font-medium text-gray-700">{u.department || '-'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Employee ID</p>
+                          <p className="text-xs font-medium text-gray-700 font-mono tracking-tighter text-purple-600 bg-purple-100/50 px-1 rounded inline-block">{u.employeeId || '-'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Joined</p>
+                          <p className="text-xs font-medium text-gray-700">{u.joinDate || '-'}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="customers" className="space-y-4 pt-6">
+          <Card className="border-gray-100">
+            <CardHeader>
+              <CardTitle>Customer Accounts</CardTitle>
+              <CardDescription>Registered shoppers and account management.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {users.filter(u => u.role === 'customer').map(u => (
+                  <div key={u.uid} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-green-100 text-green-600">
+                        {u.firstName?.[0] || u.email?.[0]?.toUpperCase() || 'C'}
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-900">{u.firstName} {u.lastName} <span className="text-xs font-normal text-gray-500 italic">({u.email})</span></p>
+                        <Badge variant="secondary" className="bg-green-50 text-green-600 uppercase">
+                          {u.role}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => toggleUserRole(u.uid, u.role)}
+                        className="text-purple-600 hover:text-purple-700 border-purple-100"
+                      >
+                        Make Admin
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="maintenance" className="pt-6">
           <Card className="border-red-100 bg-red-50/30">
             <CardHeader>
@@ -1087,8 +1363,9 @@ const AdminView = () => {
   );
 };
 
-const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => void, mode?: 'register' | 'login' }) => {
-  const { register, loginWithEmail, login: loginWithGoogle } = useAuth();
+const RegisterView = ({ setView, mode: initialMode = 'login' }: { setView: (v: string) => void, mode?: 'register' | 'login' }) => {
+  const { register, loginWithEmail, loginWithEmployeeId, login: loginWithGoogle } = useAuth();
+  const [mode, setMode] = useState<'register' | 'login' | 'employee'>(initialMode);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -1097,6 +1374,7 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
     birthDate: '',
     gender: 'male' as 'male' | 'female',
     password: '',
+    employeeId: '',
     // Detailed Address Fields
     street: '',
     building: '',
@@ -1142,7 +1420,12 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
     e.preventDefault();
     console.log("Form submission started", { mode, email: formData.email });
     
-    if (mode === 'register') {
+    if (mode === 'employee') {
+      if (!formData.employeeId || !formData.password) {
+        toast.error("Please fill in both Employee ID and password.");
+        return;
+      }
+    } else if (mode === 'register') {
       // Manual validation to provide better feedback
       const requiredFields = ['firstName', 'lastName', 'email', 'mobile', 'birthDate', 'password', 'street', 'building', 'city', 'state'];
       for (const field of requiredFields) {
@@ -1160,7 +1443,10 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
 
     setLoading(true);
     try {
-      if (mode === 'register') {
+      if (mode === 'employee') {
+        await loginWithEmployeeId(formData.employeeId, formData.password);
+        setView('home');
+      } else if (mode === 'register') {
         const addressData: Address = {
           label: 'Primary',
           street: formData.street || '',
@@ -1196,14 +1482,56 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-md">
             <User size={32} />
           </div>
-          <CardTitle className="text-3xl font-bold">{mode === 'register' ? 'Create Account' : 'Welcome Back'}</CardTitle>
+          <CardTitle className="text-3xl font-bold">
+            {mode === 'register' ? 'Create Account' : mode === 'employee' ? 'Admin Access' : 'Welcome Back'}
+          </CardTitle>
           <CardDescription className="text-green-100 italic">
-            {mode === 'register' ? 'Join AminMart for the freshest groceries' : 'Login to your boutique grocery store'}
+            {mode === 'register' ? 'Join AminMart for the freshest groceries' : mode === 'employee' ? 'Internal staff portal' : 'Login to your boutique grocery store'}
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-10 space-y-6">
-          <form onSubmit={handleSubmit} noValidate className="space-y-4 text-left">
-            {mode === 'register' && (
+        <CardContent className="p-10">
+          <Tabs value={mode} onValueChange={(v: any) => setMode(v)} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-8 bg-gray-100 p-1 rounded-2xl h-12">
+              <TabsTrigger value="login" className="rounded-xl font-bold">Email</TabsTrigger>
+              <TabsTrigger value="employee" className="rounded-xl font-bold">Admin ID</TabsTrigger>
+              <TabsTrigger value="register" className="rounded-xl font-bold">Register</TabsTrigger>
+            </TabsList>
+            
+            <form onSubmit={handleSubmit} noValidate className="space-y-4 text-left">
+              {mode === 'employee' && (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Employee ID</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                      <Input 
+                        placeholder="EP-001" 
+                        value={formData.employeeId} 
+                        onChange={e => setFormData({...formData, employeeId: e.target.value})}
+                        className="pl-10 h-12 rounded-xl border-gray-100 bg-gray-50/50"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                      <Input 
+                        type="password" 
+                        placeholder="••••••••" 
+                        value={formData.password} 
+                        onChange={e => setFormData({...formData, password: e.target.value})}
+                        className="pl-10 h-12 rounded-xl border-gray-100 bg-gray-50/50"
+                      />
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-lg font-bold rounded-2xl shadow-lg shadow-purple-100 transition-all active:scale-[0.98]" disabled={loading}>
+                    {loading ? "Verifying..." : "Login as Admin"}
+                  </Button>
+                </div>
+              )}
+
+              {mode !== 'employee' && mode === 'register' && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">First Name</label>
@@ -1230,18 +1558,20 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
               </div>
             )}
             
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Email Address</label>
-              <Input 
-                id="email"
-                type="email" 
-                required 
-                placeholder="john@example.com" 
-                className="rounded-xl border-gray-100 bg-gray-50/50"
-                value={formData.email}
-                onChange={e => setFormData({...formData, email: e.target.value})}
-              />
-            </div>
+            {mode !== 'employee' && (
+              <>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Email Address</label>
+                  <Input 
+                    id="email"
+                    type="email" 
+                    required 
+                    placeholder="john@example.com" 
+                    className="rounded-xl border-gray-100 bg-gray-50/50"
+                    value={formData.email}
+                    onChange={e => setFormData({...formData, email: e.target.value})}
+                  />
+                </div>
 
             {mode === 'register' && (
               <>
@@ -1287,168 +1617,172 @@ const RegisterView = ({ setView, mode = 'register' }: { setView: (v: string) => 
               </>
             )}
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Password</label>
-              <Input 
-                id="password"
-                type="password" 
-                required 
-                placeholder="••••••••" 
-                className="rounded-xl border-gray-100 bg-gray-50/50"
-                value={formData.password}
-                onChange={e => setFormData({...formData, password: e.target.value})}
-              />
-            </div>
-
-            {mode === 'register' && (
-              <div className="space-y-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="text-green-600" size={18} />
-                    <label className="text-xs font-bold uppercase tracking-widest text-gray-700">Delivery Information</label>
-                  </div>
-                  <button 
-                    type="button"
-                    onClick={getGeoLocation}
-                    disabled={locating}
-                    className="text-[10px] font-bold text-green-600 flex items-center gap-1 bg-green-50 px-3 py-1.5 rounded-full hover:bg-green-100 transition-colors"
-                  >
-                    {locating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
-                    Pin current location
-                  </button>
-                </div>
-
-                {formData.latitude && formData.longitude && (
-                  <div className="rounded-2xl overflow-hidden border border-gray-100 h-40 relative shadow-inner">
-                    <iframe 
-                      width="100%" 
-                      height="100%" 
-                      frameBorder="0" 
-                      scrolling="no" 
-                      marginHeight={0} 
-                      marginWidth={0} 
-                      src={`https://maps.google.com/maps?q=${formData.latitude},${formData.longitude}&z=15&output=embed`}
-                    />
-                    <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-[8px] font-bold border border-gray-100 shadow-sm uppercase tracking-tighter">Verified Location</div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Street Name</label>
-                    <Input 
-                      id="street"
-                      required 
-                      placeholder="El-Nasr St." 
-                      className="rounded-xl border-gray-100 bg-gray-50/50"
-                      value={formData.street}
-                      onChange={e => setFormData({...formData, street: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Building / Villa</label>
-                    <Input 
-                      id="building"
-                      required 
-                      placeholder="No. 42" 
-                      className="rounded-xl border-gray-100 bg-gray-50/50"
-                      value={formData.building}
-                      onChange={e => setFormData({...formData, building: e.target.value})}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Apt. Number</label>
-                    <Input 
-                      placeholder="Unit 10" 
-                      className="rounded-xl border-gray-100 bg-gray-50/50"
-                      value={formData.apartment}
-                      onChange={e => setFormData({...formData, apartment: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Floor</label>
-                    <Input 
-                      placeholder="3rd Floor" 
-                      className="rounded-xl border-gray-100 bg-gray-50/50"
-                      value={formData.floor}
-                      onChange={e => setFormData({...formData, floor: e.target.value})}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">City</label>
-                    <Input 
-                      id="city"
-                      required 
-                      placeholder="Cairo" 
-                      className="rounded-xl border-gray-100 bg-gray-50/50"
-                      value={formData.city}
-                      onChange={e => setFormData({...formData, city: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">State / Area</label>
-                    <Input 
-                      id="state"
-                      required 
-                      placeholder="Maadi" 
-                      className="rounded-xl border-gray-100 bg-gray-50/50"
-                      value={formData.state}
-                      onChange={e => setFormData({...formData, state: e.target.value})}
-                    />
-                  </div>
-                </div>
-
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Country</label>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Password</label>
                   <Input 
+                    id="password"
+                    type="password" 
                     required 
-                    readOnly
-                    className="rounded-xl border-gray-100 bg-gray-100 text-gray-400 cursor-not-allowed"
-                    value={formData.country}
+                    placeholder="••••••••" 
+                    className="rounded-xl border-gray-100 bg-gray-50/50"
+                    value={formData.password}
+                    onChange={e => setFormData({...formData, password: e.target.value})}
                   />
                 </div>
-              </div>
+
+                {mode === 'register' && (
+                  <div className="space-y-4 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="text-green-600" size={18} />
+                        <label className="text-xs font-bold uppercase tracking-widest text-gray-700">Delivery Information</label>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={getGeoLocation}
+                        disabled={locating}
+                        className="text-[10px] font-bold text-green-600 flex items-center gap-1 bg-green-50 px-3 py-1.5 rounded-full hover:bg-green-100 transition-colors"
+                      >
+                        {locating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
+                        Pin current location
+                      </button>
+                    </div>
+
+                    {formData.latitude && formData.longitude && (
+                      <div className="rounded-2xl overflow-hidden border border-gray-100 h-40 relative shadow-inner">
+                        <iframe 
+                          width="100%" 
+                          height="100%" 
+                          frameBorder="0" 
+                          scrolling="no" 
+                          marginHeight={0} 
+                          marginWidth={0} 
+                          src={`https://maps.google.com/maps?q=${formData.latitude},${formData.longitude}&z=15&output=embed`}
+                        />
+                        <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-[8px] font-bold border border-gray-100 shadow-sm uppercase tracking-tighter">Verified Location</div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Street Name</label>
+                        <Input 
+                          id="street"
+                          required 
+                          placeholder="El-Nasr St." 
+                          className="rounded-xl border-gray-100 bg-gray-50/50"
+                          value={formData.street}
+                          onChange={e => setFormData({...formData, street: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Building / Villa</label>
+                        <Input 
+                          id="building"
+                          required 
+                          placeholder="No. 42" 
+                          className="rounded-xl border-gray-100 bg-gray-50/50"
+                          value={formData.building}
+                          onChange={e => setFormData({...formData, building: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Apt. Number</label>
+                        <Input 
+                          placeholder="Unit 10" 
+                          className="rounded-xl border-gray-100 bg-gray-50/50"
+                          value={formData.apartment}
+                          onChange={e => setFormData({...formData, apartment: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Floor</label>
+                        <Input 
+                          placeholder="3rd Floor" 
+                          className="rounded-xl border-gray-100 bg-gray-50/50"
+                          value={formData.floor}
+                          onChange={e => setFormData({...formData, floor: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">City</label>
+                        <Input 
+                          id="city"
+                          required 
+                          placeholder="Cairo" 
+                          className="rounded-xl border-gray-100 bg-gray-50/50"
+                          value={formData.city}
+                          onChange={e => setFormData({...formData, city: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">State / Area</label>
+                        <Input 
+                          id="state"
+                          required 
+                          placeholder="Maadi" 
+                          className="rounded-xl border-gray-100 bg-gray-50/50"
+                          value={formData.state}
+                          onChange={e => setFormData({...formData, state: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Country</label>
+                      <Input 
+                        required 
+                        readOnly
+                        className="rounded-xl border-gray-100 bg-gray-100 text-gray-400 cursor-not-allowed"
+                        value={formData.country}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <Button 
               type="submit"
               disabled={loading} 
-              className="w-full h-12 bg-green-600 hover:bg-green-700 rounded-full text-white font-bold shadow-xl shadow-green-100 mt-4"
+              className="w-full h-14 bg-green-600 hover:bg-green-700 rounded-2xl text-white text-lg font-bold shadow-xl shadow-green-100 mt-4 transition-transform active:scale-95"
             >
-              {loading ? <Loader2 className="animate-spin" /> : (mode === 'register' ? 'Create Account' : 'Login')}
+              {loading ? "Loading..." : mode === 'employee' ? 'Login as Admin' : mode === 'register' ? 'Join AminMart' : 'Sign In'}
             </Button>
+            
+            {mode === 'login' && (
+              <div className="pt-8 space-y-4">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-gray-100"></span></div>
+                  <div className="relative flex justify-center text-[10px] uppercase tracking-tighter"><span className="bg-white px-2 text-gray-400 font-bold">Or continue with</span></div>
+                </div>
+                <Button type="button" variant="outline" className="w-full h-12 rounded-2xl border-gray-100 font-semibold" onClick={loginWithGoogle}>
+                  <img 
+                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+                    className="w-5 h-5 mr-2" 
+                    alt="Google"
+                  />
+                  Google Account
+                </Button>
+              </div>
+            )}
           </form>
+        </Tabs>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><Separator /></div>
-            <div className="relative flex justify-center text-[10px] uppercase font-bold text-gray-400">
-              <span className="bg-white px-4">Or continue with</span>
-            </div>
-          </div>
-
-          <Button variant="outline" onClick={() => loginWithGoogle()} className="w-full h-12 rounded-full border-gray-100 hover:bg-gray-50 font-semibold gap-3 flex items-center justify-center">
-            <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z" fill="#EA4335"/>
-            </svg>
-            Sign in with Google
-          </Button>
-
-          <p className="text-center text-sm text-gray-500">
-            {mode === 'register' ? 'Already have an account?' : "Don't have an account?"}
+          <p className="text-center text-sm text-gray-500 mt-6">
+            {mode === 'register' ? 'Already have an account?' : mode === 'employee' ? 'Trouble logging in?' : "Don't have an account?"}
             <button 
-              onClick={() => setView(mode === 'register' ? 'login' : 'register')}
+              type="button"
+              onClick={() => setMode(mode === 'register' ? 'login' : mode === 'employee' ? 'login' : 'register')}
               className="ml-1 text-green-600 font-bold hover:underline"
             >
-              {mode === 'register' ? 'Login' : 'Register'}
+              {mode === 'register' ? 'Login' : mode === 'employee' ? 'Contact Support' : 'Register'}
             </button>
           </p>
         </CardContent>

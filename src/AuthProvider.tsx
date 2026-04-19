@@ -13,9 +13,9 @@ import {
   reload
 } from 'firebase/auth';
 import { auth, db } from './firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, where } from 'firebase/firestore';
 import { UserProfile, Address } from './types';
-import { getDocument, createDocument, updateDocument } from './lib/firebase-utils';
+import { getDocument, createDocument, updateDocument, getCollection, removeDocument } from './lib/firebase-utils';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -24,6 +24,7 @@ interface AuthContextType {
   loading: boolean;
   login: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
+  loginWithEmployeeId: (id: string, pass: string) => Promise<void>;
   register: (email: string, pass: string, data: Partial<UserProfile>) => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   logout: () => Promise<void>;
@@ -67,6 +68,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (user) {
           // Fetch or create profile
           let userProfile = await getDocument<UserProfile>('users', user.uid);
+          if (!userProfile && user.email) {
+            // Check for pre-registered profile by email
+            const preRegResults = await getCollection<UserProfile>('users', [where('email', '==', user.email)]);
+            const preRegProfile = preRegResults.find(p => p.isPreRegistered);
+            
+            if (preRegProfile) {
+              console.log("Linking to pre-registered profile:", preRegProfile.id);
+              const updatedProfile = { 
+                ...preRegProfile, 
+                uid: user.uid, 
+                isPreRegistered: false,
+                isVerified: user.emailVerified 
+              };
+              // Delete the old pending document and create new with UID
+              await removeDocument('users', preRegProfile.id);
+              await createDocument('users', updatedProfile, user.uid);
+              userProfile = updatedProfile;
+            }
+          }
+
           if (!userProfile) {
             const newProfile: UserProfile = {
               uid: user.uid,
@@ -137,6 +158,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginWithEmployeeId = async (id: string, pass: string) => {
+    const toastId = toast.loading('Verifying Employee ID...');
+    try {
+      const results = await getCollection<UserProfile>('users', [where('employeeId', '==', id)]);
+      const userDoc = results[0];
+      
+      if (!userDoc) {
+        throw new Error('Employee ID not found');
+      }
+      
+      if (userDoc.password !== pass) {
+        throw new Error('Invalid password');
+      }
+
+      // NOTE: In a production app, we would use Firebase Auth. 
+      // This is a prototype implementation for local admin login.
+      setProfile(userDoc);
+      // We don't have a Firebase 'User' object here since we bypassed Auth
+      // This might cause issues with some hooks, but works for the dashboard
+      toast.success(`Welcome back, ${userDoc.firstName}!`, { id: toastId });
+    } catch (error: any) {
+      toast.error(error.message, { id: toastId });
+      throw error;
+    }
+  };
+
   const register = async (email: string, pass: string, data: Partial<UserProfile> & { addressData?: Address }) => {
     const toastId = toast.loading('Creating account...');
     try {
@@ -192,7 +239,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, loginWithEmail, register, updateProfile, refreshUser, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, loginWithEmail, loginWithEmployeeId, register, updateProfile, refreshUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

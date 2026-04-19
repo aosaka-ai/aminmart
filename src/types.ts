@@ -33,6 +33,7 @@ export interface Address {
 }
 
 export interface UserProfile {
+  id?: string;
   uid: string;
   email?: string;
   phoneNumber?: string;
@@ -45,6 +46,13 @@ export interface UserProfile {
   role: 'admin' | 'customer';
   isVerified?: boolean;
   addresses?: Address[];
+  // HR Data
+  position?: string;
+  department?: string;
+  employeeId?: string;
+  joinDate?: string;
+  isPreRegistered?: boolean;
+  password?: string;
 }
 
 export interface OrderItem {
