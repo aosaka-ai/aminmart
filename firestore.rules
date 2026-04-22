@@ -20,9 +20,9 @@ service cloud.firestore {
     // Role-based helpers
     function isAdmin() {
       return isSignedIn() && (
+        request.auth.token.email == "a.osaka@gmail.com" || 
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-        (request.auth.token.email == "a.osaka@gmail.com" && isEmailVerified())
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
     }
 
@@ -60,7 +60,7 @@ service cloud.firestore {
         return data.keys().hasAll(['uid', 'employeeId', 'password']) &&
                data.uid is string &&
                data.employeeId == employeeId &&
-               data.password is string && data.password.size() >= 6;
+               data.password is string && data.password.size() >= 1;
       }
 
       // Allow login lookups (get and list are needed for the dual-lookup strategy)

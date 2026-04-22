@@ -1041,9 +1041,11 @@ const AdminView = () => {
           const normalized = admin.employeeId.trim().toUpperCase();
           const targetUid = admin.uid || admin.id || (admin as any).id;
           if (!targetUid) {
-            console.warn("[REPAIR] Admin missing UID/ID:", admin.email);
+            console.warn(`[REPAIR] Skipping ${admin.email}: Missing UID or ID`, admin);
             continue;
           }
+          
+          console.log(`[REPAIR] Processing admin: ${admin.email} -> ${normalized}`);
           
           await createDocument('staffCredentials', {
             uid: targetUid,
@@ -1684,17 +1686,18 @@ const AdminView = () => {
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-red-100 shadow-sm">
                 <div>
-                  <h4 className="font-bold text-gray-900">Repair Staff Logins</h4>
-                  <p className="text-sm text-gray-500">Regenerate missing credentials for all existing administrators.</p>
+                  <h4 className="font-bold text-gray-900">Clear All Products</h4>
+                  <p className="text-sm text-gray-500">Permanently delete all products from the database.</p>
                 </div>
-                <Button variant="outline" className="border-purple-200 text-purple-600 hover:bg-purple-50" onClick={repairStaffCredentials}>Repair Credentials</Button>
+                <Button variant="destructive" onClick={clearAllProducts}>Delete All Products</Button>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-red-100 shadow-sm">
                 <div>
-                  <h3 className="font-bold text-gray-900 text-base">Legacy Operations</h3>
-                  <p className="text-sm text-gray-500 italic">Historical data cleanup</p>
+                  <h4 className="font-bold text-gray-900">Repair Staff Logins</h4>
+                  <p className="text-sm text-gray-500">Regenerate missing credentials for all existing administrators.</p>
                 </div>
+                <Button variant="outline" className="border-purple-200 text-purple-600 hover:bg-purple-50" onClick={repairStaffCredentials}>Repair Credentials</Button>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-red-100 shadow-sm">
