@@ -972,9 +972,10 @@ const AdminView = () => {
       return;
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === 'undefined') {
-      console.error("[AI] GEMINI_API_KEY is missing/invalid in browser environment:", apiKey);
+    const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    
+    if (!apiKey || apiKey === 'undefined' || apiKey === '""') {
+      console.error("[AI] GEMINI_API_KEY is missing/invalid in browser environment");
       toast.error("Gemini API Key is not configured. Please check the Secrets section in Settings.");
       return;
     }
