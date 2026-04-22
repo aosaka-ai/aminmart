@@ -5,7 +5,6 @@ import {
   doc, 
   getDocFromServer 
 } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
@@ -17,7 +16,6 @@ export const db = initializeFirestore(app, {
 }, (firebaseConfig as any).firestoreDatabaseId || '(default)');
 
 export const auth = getAuth(app);
-export const storage = getStorage(app);
 
 // CRITICAL: Connection test as per Firebase integration requirements
 async function testConnection() {

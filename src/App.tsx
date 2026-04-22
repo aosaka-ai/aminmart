@@ -1060,12 +1060,12 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
             const base64Data = part.inlineData.data;
             const tempImageUrl = `data:image/png;base64,${base64Data}`;
             
-            // Convert to file and upload to firebase storage to avoid 1MB Firestore limit
-            toast.loading("Transferring high-res image to storage...", { id: toastId });
+            // Convert to file and upload to Cloudinary to avoid 1MB Firestore limit
+            toast.loading("Transferring high-res image to Cloudinary...", { id: toastId });
             console.log("[AI] Converting base64 to file...");
             const file = base64ToFile(tempImageUrl, `${type}_${name.replace(/ /g, '_')}_${Date.now()}.png`);
             
-            console.log("[AI] Uploading file to storage...");
+            console.log("[AI] Uploading file to Cloudinary...");
             const storagePath = type === 'category' ? 'categories' : 'products';
             const imageUrl = await uploadFile(file, storagePath);
             console.log("[AI] Upload complete. URL:", imageUrl);

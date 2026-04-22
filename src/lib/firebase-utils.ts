@@ -13,8 +13,8 @@ import {
   Timestamp,
   addDoc
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, auth, storage } from '../firebase';
+// Removed firebase/storage import as we shifted to Cloudinary
+import { db, auth } from '../firebase';
 
 export enum OperationType {
   CREATE = 'create',
@@ -127,19 +127,38 @@ export async function removeDocument(path: string, id: string) {
 }
 
 export async function uploadFile(file: File, path: string): Promise<string> {
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+  // Fallback for debugging if user hasn't set them yet
+  if (!cloudName || !uploadPreset) {
+    console.warn("Cloudinary configuration missing. Please add VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET to Secrets.");
+    throw new Error('Cloudinary not configured. Please set your Cloud Name and Unsigned Upload Preset in Secrets.');
+  }
+
   try {
-    const storageRef = ref(storage, `${path}/${Date.now()}_${file.name}`);
-    const snapshot = await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+    formData.append('folder', path); // Organizes files by folder
+
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || 'Upload failed');
+    }
+
+    const data = await response.json();
+    return data.secure_url; // Returns the optimized HTTPS version of the link
   } catch (error: any) {
-    console.error('Error uploading file:', error);
-    if (error.code === 'storage/unauthorized') {
-      throw new Error('Permission denied. Please ensure Firebase Storage is enabled and rules are set to allow uploads.');
-    }
-    if (error.code === 'storage/quota-exceeded') {
-      throw new Error('Storage quota exceeded. Please check your Firebase plan.');
-    }
+    console.error('Error uploading to Cloudinary:', error);
     throw error;
   }
 }
