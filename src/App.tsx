@@ -67,105 +67,106 @@ const AminMartLogo = ({ className = "w-10 h-10", showBox = true }: { className?:
     <svg 
       viewBox="0 0 100 100" 
       fill="none" 
-      className="w-[90%] h-[90%] relative z-10 transition-all duration-700 group-hover:scale-110 drop-shadow-md"
+      className="w-[92%] h-[92%] relative z-10 transition-all duration-700 group-hover:scale-110 drop-shadow-md"
     >
       <defs>
-        {/* Gradients for vibrant 3D look */}
-        <linearGradient id="leafGradMain" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#bcf56c" />
-          <stop offset="50%" stopColor="#4bb32a" />
-          <stop offset="100%" stopColor="#2d7a12" />
-        </linearGradient>
-        
-        <linearGradient id="sunGradMain" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#ffe45e" />
-          <stop offset="60%" stopColor="#f5a623" />
-          <stop offset="100%" stopColor="#cf6d17" />
+        {/* Gradients for the 3D piping and friendly vibe */}
+        <linearGradient id="pipingGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#86efac" />
+          <stop offset="50%" stopColor="#22c55e" />
+          <stop offset="100%" stopColor="#166534" />
         </linearGradient>
 
-        <linearGradient id="swooshGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#2a9b2a" />
-          <stop offset="100%" stopColor="#bcf56c" />
+        <linearGradient id="faceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fef08a" />
+          <stop offset="100%" stopColor="#fbbf24" />
         </linearGradient>
 
-        <linearGradient id="baseGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#bcf56c" />
-          <stop offset="50%" stopColor="#2a9b2a" />
-          <stop offset="100%" stopColor="#1a63cc" />
+        <linearGradient id="leafDetailGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#4ade80" />
+          <stop offset="100%" stopColor="#166534" />
         </linearGradient>
 
-        <linearGradient id="orangeBlockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#ffb061" />
-          <stop offset="100%" stopColor="#f48120" />
-        </linearGradient>
-
-        <filter id="innerGlowLogo" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="blur" />
-          <feOffset dx="1" dy="1" result="offset" />
-          <feComposite in="SourceGraphic" in2="offset" operator="over" />
-          <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="smooth" />
+        <filter id="shadowHeavy" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" />
+          <feOffset dx="0.5" dy="1" result="offsetblur" />
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="0.2" />
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
         </filter>
       </defs>
 
-      <g filter="url(#innerGlowLogo)">
-        {/* Base Circle Gradient path at the bottom */}
+      <g filter="url(#shadowHeavy)">
+        {/* Outer Green Circle Frame */}
+        <circle cx="50" cy="50" r="42" stroke="#16a34a" strokeWidth="6" fill="none" />
+        
+        {/* Main yellow "Face" Background */}
         <path 
-          d="M20,60 C20,85 80,85 80,60 C80,85 30,95 20,60 Z" 
-          fill="url(#baseGrad)" 
-          opacity="0.8"
+          d="M15,50 A35,35 0 1,1 85,50 A35,35 0 1,1 15,50 Z" 
+          fill="url(#faceGrad)" 
+          opacity="0.9"
         />
 
-        {/* Five Leaves at the Top */}
-        {/* Far Left */}
-        <path d="M35,45 C25,40 25,25 35,25 C45,25 45,40 35,45 Z" fill="url(#leafGradMain)" opacity="0.8" />
-        {/* Left-Mid */}
-        <path d="M42,38 C35,32 35,15 45,15 C55,15 52,32 42,38 Z" fill="url(#leafGradMain)" opacity="0.9" />
-        {/* Center */}
-        <path d="M50,35 C45,25 45,5 55,5 C65,5 65,25 60,35 Z" fill="url(#leafGradMain)" />
-        {/* Right-Mid */}
-        <path d="M58,38 C65,32 65,15 55,15 C45,15 48,32 58,38 Z" fill="url(#leafGradMain)" opacity="0.9" />
-        {/* Far Right */}
-        <path d="M65,45 C75,40 75,25 65,25 C55,25 55,40 65,45 Z" fill="url(#leafGradMain)" opacity="0.8" />
+        {/* The Smiley Face Elements */}
+        {/* Eyes */}
+        <path d="M43,35 C43,32 48,32 48,35" stroke="#166534" strokeWidth="3" strokeLinecap="round" fill="none" />
+        <path d="M52,35 C52,32 57,32 57,35" stroke="#166534" strokeWidth="3" strokeLinecap="round" fill="none" />
+        {/* Smile */}
+        <path d="M45,45 Q50,52 55,45" stroke="#166534" strokeWidth="3" strokeLinecap="round" fill="none" />
 
-        {/* Rising Sun on the Right */}
-        <circle cx="65" cy="55" r="15" fill="url(#sunGradMain)" />
-        {/* Sun Rays */}
-        <g stroke="#f5a623" strokeWidth="2.5" strokeLinecap="round">
-          <line x1="65" y1="40" x2="65" y2="35" />
-          <line x1="75.6" y1="44.4" x2="79.1" y2="40.9" />
-          <line x1="80" y1="55" x2="85" y2="55" />
-          <line x1="57.5" y1="42.5" x2="54" y2="39" />
-          <line x1="50" y1="55" x2="45" y2="55" />
+        {/* 3D Shopping Cart Structure - Green Piping */}
+        <g>
+          {/* Main Cart Body & Handle */}
+          <path 
+            d="M32,32 C32,32 40,55 42,75 C42,82 48,82 75,82 L82,65 L60,45" 
+            stroke="#15803d" 
+            strokeWidth="7" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          />
+          {/* Inner LightHighlight Piping */}
+          <path 
+            d="M36,35 C36,35 42,50 43,70 L72,75 L78,66" 
+            stroke="white" 
+            strokeOpacity="0.4" 
+            strokeWidth="2.5" 
+            strokeLinecap="round" 
+          />
+          
+          {/* Bottom Bar for Wheels */}
+          <path d="M45,75 L75,75" stroke="#166534" strokeWidth="6" strokeLinecap="round" />
+          
+          {/* Wheels */}
+          <circle cx="48" cy="85" r="5" fill="#166534" />
+          <circle cx="48" cy="85" r="2.5" fill="white" opacity="0.4" />
+          
+          <circle cx="70" cy="85" r="5" fill="#166534" />
+          <circle cx="70" cy="85" r="2.5" fill="white" opacity="0.4" />
         </g>
-        {/* Highlight on Sun */}
-        <circle cx="60" cy="50" r="5" fill="white" opacity="0.2" />
 
-        {/* Orange Geometric Element at Bottom Left */}
-        <path 
-          d="M38,55 L45,55 L45,65 L35,65 L35,60 C35,60 38,60 38,55 Z" 
-          fill="url(#orangeBlockGrad)" 
-        />
-        <circle cx="48" cy="58" r="3" fill="#f48120" />
+        {/* Organic Leaf inside the cart */}
+        <g>
+          <path 
+            d="M48,65 C40,55 40,40 52,40 C60,40 55,55 48,65 Z" 
+            fill="url(#leafDetailGrad)" 
+          />
+          <path d="M48,60 C46,55 46,45 50,42" stroke="white" strokeOpacity="0.3" strokeWidth="1" strokeLinecap="round" />
+          
+          {/* Secondary Leaf */}
+          <path 
+            d="M55,68 C65,65 75,55 65,42 C55,55 50,65 55,68 Z" 
+            fill="#86efac" 
+            opacity="0.8"
+          />
+        </g>
 
-        {/* Major Swoosh / Arrow curving upwards */}
-        <path 
-           d="M30,75 C20,60 50,55 85,45" 
-           stroke="url(#swooshGrad)" 
-           strokeWidth="9" 
-           strokeLinecap="round" 
-        />
-        <path 
-           d="M75,38 L90,45 L78,55 Z" 
-           fill="#4bb32a" 
-        />
-        {/* Highlight on swoosh */}
-        <path 
-           d="M35,70 C30,60 50,58 75,48" 
-           stroke="white" 
-           strokeOpacity="0.2" 
-           strokeWidth="2.5" 
-           strokeLinecap="round" 
-        />
+        {/* Small Orange Fruit/Dot near upper corner */}
+        <circle cx="72" cy="42" r="5" fill="#f97316" />
+        <path d="M72,38 L74,34" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" />
       </g>
     </svg>
     {showBox && <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full blur-2xl opacity-10 group-hover:opacity-30 transition-opacity" />}
