@@ -282,7 +282,7 @@ const CategoryCard = ({ category, isSelected, onClick }: CategoryCardProps) => {
   } else if (name.includes('beverage') || name.includes('drink') || name.includes('soda')) {
     displayImageUrl = 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&q=80&w=1000';
   } else if (name.includes('fruit') || name.includes('veg')) {
-    displayImageUrl = 'https://images.unsplash.com/photo-1610832958506-aa56338406cd?auto=format&fit=crop&q=80&w=1000';
+    displayImageUrl = 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&q=80&w=1000';
   }
 
   return (
