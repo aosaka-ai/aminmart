@@ -883,6 +883,7 @@ const AdminView = () => {
   const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [editingProd, setEditingProd] = useState<Product | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: string, name?: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
@@ -945,21 +946,32 @@ const AdminView = () => {
   };
 
   const generateAIImage = async (name: string, type: 'category' | 'product') => {
+    console.log(`[AI] Attempting to generate image for ${type}: ${name}`);
     if (!name) {
       toast.error(`Please enter a ${type} name first`);
       return;
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("[AI] GEMINI_API_KEY is missing from environment");
+      toast.error("Gemini API Key is missing. Please contact support or check settings.");
+      return;
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
     setIsGenerating(true);
     const toastId = toast.loading(`Generating AI image for "${name}"...`);
 
     try {
       const prompt = `A professional, ultra-high-resolution, and appetizing studio photograph of ${name} for a luxury boutique grocery store mobile app. The style should be clean food photography, minimalist, on a neutral light grey or soft white background, with professional studio lighting. Centered composition. No text.`;
 
+      console.log("[AI] Sending request to Gemini...");
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
-        contents: [{ text: prompt }],
+        contents: {
+          parts: [{ text: prompt }]
+        },
         config: {
           imageConfig: {
             aspectRatio: "1:1"
@@ -967,29 +979,61 @@ const AdminView = () => {
         }
       });
 
+      console.log("[AI] Response received:", response);
+
       let foundImage = false;
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          const base64Data = part.inlineData.data;
-          const imageUrl = `data:image/png;base64,${base64Data}`;
-          
-          if (type === 'category') setNewCat(prev => ({ ...prev, imageUrl }));
-          else setNewProd(prev => ({ ...prev, imageUrl }));
-          
-          foundImage = true;
-          toast.success("AI Image generated successfully!", { id: toastId });
-          break;
+      if (response && response.candidates && response.candidates[0].content.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            const base64Data = part.inlineData.data;
+            const imageUrl = `data:image/png;base64,${base64Data}`;
+            
+            if (type === 'category') setNewCat(prev => ({ ...prev, imageUrl }));
+            else setNewProd(prev => ({ ...prev, imageUrl }));
+            
+            foundImage = true;
+            toast.success("AI Image generated successfully!", { id: toastId });
+            break;
+          }
         }
       }
 
       if (!foundImage) {
-        throw new Error("No image data found in AI response");
+        console.warn("[AI] No image parts found in response", response);
+        throw new Error("The AI model returned no image. Try a more descriptive name.");
       }
     } catch (error: any) {
       console.error("AI Generation Error:", error);
-      toast.error(`AI Generation failed: ${error.message}. Ensure GEMINI_API_KEY is configured.`, { id: toastId });
+      toast.error(`AI Generation failed: ${error.message}`, { id: toastId });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const processDelete = async () => {
+    if (!deleteConfirm) return;
+    const { id, type } = deleteConfirm;
+    const toastId = toast.loading(`Deleting ${type}...`);
+    
+    try {
+      if (type === 'product') {
+        await removeDocument('products', id);
+      } else if (type === 'category') {
+        await removeDocument('categories', id);
+      } else if (type === 'user') {
+        await removeDocument('users', id);
+      } else if (type === 'order') {
+        await removeDocument('orders', id);
+      } else if (type === 'all-products') {
+        for (const p of products) await removeDocument('products', p.id);
+      } else if (type === 'all-categories') {
+        for (const c of categories) await removeDocument('categories', c.id);
+      }
+      toast.success(`${type} deleted successfully`, { id: toastId });
+    } catch (error: any) {
+      toast.error(`Delete failed: ${error.message}`, { id: toastId });
+    } finally {
+      setDeleteConfirm(null);
     }
   };
 
@@ -1121,23 +1165,11 @@ const AdminView = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
-    try {
-      await removeDocument('users', userId);
-      toast.success("User deleted successfully");
-    } catch (error: any) {
-      toast.error(`Delete failed: ${error.message}`);
-    }
+    setDeleteConfirm({ id: userId, type: 'user' });
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm("Are you sure you want to delete this order?")) return;
-    try {
-      await removeDocument('orders', orderId);
-      toast.success("Order deleted successfully");
-    } catch (error: any) {
-      toast.error(`Delete failed: ${error.message}`);
-    }
+    setDeleteConfirm({ id: orderId, type: 'order' });
   };
 
   const handleAddLocalAdmin = async () => {
@@ -1188,29 +1220,11 @@ const AdminView = () => {
   };
 
   const clearAllProducts = async () => {
-    if (!confirm("Are you sure you want to delete ALL products? This cannot be undone.")) return;
-    const toastId = toast.loading("Deleting products...");
-    try {
-      for (const p of products) {
-        await removeDocument('products', p.id);
-      }
-      toast.success("All products deleted", { id: toastId });
-    } catch (err) {
-      toast.error("Failed to delete products", { id: toastId });
-    }
+    setDeleteConfirm({ id: 'all', type: 'all-products' });
   };
 
   const clearAllCategories = async () => {
-    if (!confirm("Are you sure you want to delete ALL categories? This cannot be undone.")) return;
-    const toastId = toast.loading("Deleting categories...");
-    try {
-      for (const c of categories) {
-        await removeDocument('categories', c.id);
-      }
-      toast.success("All categories deleted", { id: toastId });
-    } catch (err) {
-      toast.error("Failed to delete categories", { id: toastId });
-    }
+    setDeleteConfirm({ id: 'all', type: 'all-categories' });
   };
 
   const repairStaffCredentials = async () => {
@@ -1367,7 +1381,7 @@ const AdminView = () => {
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={() => startEditProduct(p)}><Edit2 size={16} /></Button>
-                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => removeDocument('products', p.id)}><Trash2 size={16} /></Button>
+                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => setDeleteConfirm({ id: p.id, type: 'product', name: p.name })}><Trash2 size={16} /></Button>
                   </div>
                 </CardContent>
               </Card>
@@ -1452,7 +1466,7 @@ const AdminView = () => {
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={() => startEditCategory(c)}><Edit2 size={16} /></Button>
-                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => removeDocument('categories', c.id)}><Trash2 size={16} /></Button>
+                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => setDeleteConfirm({ id: c.id, type: 'category', name: c.name })}><Trash2 size={16} /></Button>
                   </div>
                 </CardContent>
               </Card>
@@ -1941,6 +1955,26 @@ const AdminView = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <DialogContent className="rounded-[2rem]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2 text-red-600">
+              <Trash2 className="w-6 h-6" />
+              Confirm Deletion
+            </DialogTitle>
+            <DialogDescription className="py-4">
+              Are you sure you want to delete {deleteConfirm?.name ? <b>"{deleteConfirm.name}"</b> : `this ${deleteConfirm?.type}`}? 
+              {deleteConfirm?.type?.includes('all') ? " This will remove multiple items and cannot be undone." : " This action is permanent."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="rounded-xl">Cancel</Button>
+            <Button onClick={processDelete} className="bg-red-600 hover:bg-red-700 rounded-xl">Delete Permanently</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
