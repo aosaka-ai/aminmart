@@ -61,6 +61,146 @@ const CURRENCY = 'EGP';
 
 // --- Components ---
 
+const AminMartLogo = ({ className = "w-10 h-10", showBox = true }: { className?: string, showBox?: boolean }) => (
+  <div className={`${className} ${showBox ? 'bg-white rounded-xl shadow-sm border border-gray-100' : 'bg-transparent'} flex items-center justify-center relative overflow-hidden group transition-all duration-300`}>
+    {showBox && <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-50 opacity-30" />}
+    <svg 
+      viewBox="0 0 100 100" 
+      fill="none" 
+      className="w-[85%] h-[85%] relative z-10 transition-all duration-700 group-hover:scale-110 drop-shadow-sm"
+    >
+      <defs>
+        {/* Main 3D Pipe Gradients */}
+        <linearGradient id="cartGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#22c55e" />
+          <stop offset="50%" stopColor="#16a34a" />
+          <stop offset="100%" stopColor="#15803d" />
+        </linearGradient>
+        
+        {/* Highlight for 3D depth */}
+        <linearGradient id="glintGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="white" stopOpacity="0.4" />
+          <stop offset="50%" stopColor="white" stopOpacity="0.1" />
+          <stop offset="100%" stopColor="white" stopOpacity="0" />
+        </linearGradient>
+
+        <linearGradient id="leafGrad3D" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#4ade80" />
+          <stop offset="60%" stopColor="#16a34a" />
+          <stop offset="100%" stopColor="#14532d" />
+        </linearGradient>
+
+        <linearGradient id="tealGrad3D" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#5eead4" />
+          <stop offset="50%" stopColor="#0d9488" />
+          <stop offset="100%" stopColor="#134e4a" />
+        </linearGradient>
+
+        <radialGradient id="sunGrad" cx="30%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#fbbf24" />
+          <stop offset="100%" stopColor="#d97706" />
+        </radialGradient>
+
+        {/* Shadow filter for depth */}
+        <filter id="shadowLogo" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" />
+          <feOffset dx="1" dy="1" result="offsetblur" />
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="0.3" />
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <g filter="url(#shadowLogo)">
+        {/* Wheels - with 3D depth */}
+        <circle cx="48" cy="85" r="4.5" fill="#14532d" />
+        <circle cx="48" cy="85" r="2.5" fill="#22c55e" opacity="0.4" />
+        
+        <circle cx="68" cy="85" r="4.5" fill="#14532d" />
+        <circle cx="68" cy="68" r="2.5" fill="#22c55e" opacity="0.4" />
+
+        {/* The ribbon/cart structure - thick 3D pipe */}
+        <path 
+          d="M15,40 C15,40 28,40 30,40 C35,40 40,55 42,75 C43,80 48,80 75,80" 
+          stroke="url(#cartGrad)" 
+          strokeWidth="8" 
+          strokeLinecap="round" 
+        />
+        {/* Glint on pipe */}
+        <path 
+          d="M18,38 C18,38 28,38 30,38 C34,38 38,50 40,70" 
+          stroke="url(#glintGrad)" 
+          strokeWidth="2.5" 
+          strokeLinecap="round" 
+          opacity="0.6"
+        />
+
+        {/* The 'W' ribbon effect */}
+        <path 
+          d="M42,75 C45,60 50,45 60,45 C70,45 75,60 80,75" 
+          stroke="url(#cartGrad)" 
+          strokeWidth="8" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+        />
+        <path 
+          d="M45,72 C48,60 52,48 60,48 C68,48 72,60 76,72" 
+          stroke="url(#glintGrad)" 
+          strokeWidth="2.5" 
+          strokeLinecap="round" 
+          opacity="0.5"
+        />
+
+        {/* Swoosh to Leaves */}
+        <path 
+          d="M42,75 C30,65 35,45 60,35 C75,30 85,45 80,75" 
+          stroke="url(#tealGrad3D)" 
+          strokeWidth="7" 
+          strokeLinecap="round" 
+          opacity="0.9"
+        />
+
+        {/* Leaves - 3D Volume */}
+        {/* Main Leaf */}
+        <path 
+          d="M60,35 C55,25 50,5 65,5 C80,5 75,30 60,35 Z" 
+          fill="url(#leafGrad3D)" 
+        />
+        <path 
+          d="M62,30 C60,20 58,12 65,8" 
+          stroke="white" 
+          strokeWidth="1.5" 
+          strokeOpacity="0.3" 
+          strokeLinecap="round"
+        />
+
+        {/* Left Small Leaf */}
+        <path 
+          d="M52,32 C45,30 40,20 50,15 C60,20 62,30 52,32 Z" 
+          fill="url(#leafGrad3D)" 
+          opacity="0.9"
+        />
+
+        {/* Right Swoosh Leaf */}
+        <path 
+          d="M72,38 C82,35 95,25 85,10 C75,20 62,35 72,38 Z" 
+          fill="url(#tealGrad3D)" 
+          opacity="0.8"
+        />
+
+        {/* 3D Sun */}
+        <circle cx="85" cy="22" r="8" fill="url(#sunGrad)" />
+        <circle cx="82" cy="19" r="2.5" fill="white" opacity="0.4" />
+      </g>
+    </svg>
+    {showBox && <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full blur-2xl opacity-10 group-hover:opacity-30 transition-opacity" />}
+  </div>
+);
+
 const Navbar = ({ setView, currentView }: { setView: (v: string) => void, currentView: string }) => {
   const { profile, logout, refreshUser } = useAuth();
   const { items } = useCart();
@@ -84,13 +224,14 @@ const Navbar = ({ setView, currentView }: { setView: (v: string) => void, curren
     <nav className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={handleLogoClick}>
-            <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-200">
-              <ShoppingCart size={24} />
+          <div className="flex items-center gap-2 cursor-pointer group" onClick={handleLogoClick}>
+            <AminMartLogo />
+            <div className="flex flex-col -space-y-0.5">
+              <span className="text-xl font-bold tracking-tight text-gray-900 group-hover:text-green-600 transition-colors">
+                Amin<span className="text-green-600">Mart</span>
+              </span>
+              <span className="text-[10px] font-medium text-gray-400 uppercase tracking-[0.2em] ml-0.5">Modern Grocery</span>
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-              AminMart
-            </span>
           </div>
 
           <div className="hidden md:flex items-center gap-6">
@@ -294,10 +435,13 @@ const HomeView = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-12">
       {/* Hero Section */}
-      <div className="relative rounded-[2.5rem] overflow-hidden bg-green-600 h-[350px] flex items-center px-8 sm:px-16 shadow-2xl shadow-green-100">
+      <div className="relative rounded-[2.5rem] overflow-hidden bg-green-600 h-[350px] flex items-center px-8 sm:px-16 shadow-2xl shadow-green-100 group">
+        <div className="absolute top-8 right-8 text-white/5 pointer-events-none transition-transform group-hover:scale-110 duration-1000">
+           <AminMartLogo className="w-64 h-64 opacity-5 rotate-12" showBox={false} />
+        </div>
         <div className="relative z-10 max-w-lg space-y-6">
           <Badge className="bg-white/20 text-white border-none backdrop-blur-md px-4 py-1.5 text-xs font-medium uppercase tracking-widest">
-            Premium Selection
+            AminMart Organic
           </Badge>
           <h1 className="text-5xl sm:text-6xl font-bold text-white leading-[1.1] tracking-tight">
             Freshness <br /> redefined.
@@ -1115,25 +1259,36 @@ const AdminView = () => {
               </Select>
               <Input placeholder="Unit (e.g. kg, pc)" value={newProd.unit} onChange={e => setNewProd({...newProd, unit: e.target.value})} />
               
-              <div className="flex items-center gap-2">
-                <Input 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  id="prod-img" 
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const url = await handleImageUpload(file, 'products');
-                      if (url) setNewProd({...newProd, imageUrl: url});
-                    }
-                  }}
-                />
-                <label htmlFor="prod-img" className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors text-sm font-medium">
-                  {uploading ? <Loader2 className="animate-spin" size={16} /> : <Camera size={16} />}
-                  {newProd.imageUrl ? 'Change Image' : 'Upload Image'}
-                </label>
-                {newProd.imageUrl && <img src={newProd.imageUrl} className="w-10 h-10 rounded object-cover" alt="Preview" />}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    id="prod-img" 
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const url = await handleImageUpload(file, 'products');
+                        if (url) setNewProd({...newProd, imageUrl: url});
+                      }
+                    }}
+                  />
+                  <label htmlFor="prod-img" className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors text-sm font-medium">
+                    {uploading ? <Loader2 className="animate-spin" size={16} /> : <Camera size={16} />}
+                    {newProd.imageUrl ? 'Change Image' : 'Upload Image'}
+                  </label>
+                  {newProd.imageUrl && <img src={newProd.imageUrl} className="w-10 h-10 rounded object-cover" alt="Preview" />}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Input 
+                    placeholder="or paste Image URL here" 
+                    value={newProd.imageUrl} 
+                    onChange={e => setNewProd({...newProd, imageUrl: e.target.value})}
+                    className="text-xs"
+                  />
+                  <p className="text-[10px] text-gray-400 italic">Tip: If upload fails, ensure "Cloud Storage" is enabled in Firebase Console.</p>
+                </div>
               </div>
 
               <div className="flex gap-2">
@@ -1180,6 +1335,7 @@ const AdminView = () => {
               <div className="flex gap-4">
                 <Input placeholder="Category Name" value={newCat.name} onChange={e => setNewCat({...newCat, name: e.target.value})} />
                 
+              <div className="flex flex-col gap-2 min-w-[200px]">
                 <div className="flex items-center gap-2">
                   <Input 
                     type="file" 
@@ -1200,6 +1356,13 @@ const AdminView = () => {
                   </label>
                   {newCat.imageUrl && <img src={newCat.imageUrl} className="w-10 h-10 rounded object-cover" alt="Preview" />}
                 </div>
+                <Input 
+                  placeholder="Image URL" 
+                  value={newCat.imageUrl} 
+                  onChange={e => setNewCat({...newCat, imageUrl: e.target.value})}
+                  className="text-xs"
+                />
+              </div>
 
                 <Button onClick={handleSaveCategory} className="bg-green-600 hover:bg-green-700">
                   {editingCat ? 'Update Category' : 'Add Category'}
