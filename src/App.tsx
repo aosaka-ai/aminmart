@@ -998,10 +998,13 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       console.error("[AI] GEMINI_API_KEY is missing/invalid");
       toast.error(
         <div>
-          <p className="font-bold">Gemini API Key missing.</p>
-          <p className="text-xs">If you opened from GitHub, please add your <span className="font-mono bg-black/10 px-1 rounded">GEMINI_API_KEY</span> to the <b>Secrets</b> section in Settings.</p>
+          <p className="font-bold text-red-600">Gemini API Key missing.</p>
+          <p className="text-xs mt-1 text-gray-600">
+            Please add your key as <span className="font-mono bg-gray-100 px-1 rounded text-pink-600">VITE_GEMINI_API_KEY</span> 
+            in the <b>Secrets</b> section of your Settings.
+          </p>
         </div>, 
-        { duration: 6000 }
+        { duration: 8000 }
       );
       return;
     }
