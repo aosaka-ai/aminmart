@@ -992,48 +992,39 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       return;
     }
 
-    const rawKey = 
-      (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-      (import.meta as any).env?.GEMINI_API_KEY ||
-      process.env.GEMINI_API_KEY ||
-      process.env.VITE_GEMINI_API_KEY;
+    const apiKey = 
+      (import.meta as any).env?.VITE_GEMINI_API_KEY || 
+      process.env.GEMINI_API_KEY;
 
-    // Clean key and handle common errors (stripping quotes, trimming)
-    const apiKey = rawKey?.replace(/['"]+/g, '').trim();
-    
     if (!apiKey || apiKey === 'undefined' || apiKey === '""' || apiKey.length < 5) {
-      console.error("[AI] GEMINI_API_KEY is missing or invalid");
-      const secretHint = !apiKey ? "Not found." : apiKey === 'undefined' ? "Detected as 'undefined' string." : "Too short.";
+      console.error("[AI] Key not found in client environment");
       toast.error(
-        <div className="space-y-2">
-          <p className="font-bold text-red-600">Gemini API Key still missing.</p>
-          <p className="text-xs text-gray-600 leading-relaxed">
-            Vite is unable to pick up your key. Please verify the following:
-          </p>
-          <ul className="text-[10px] text-gray-500 list-disc pl-4 space-y-1">
-            <li>Name: <span className="font-mono font-bold text-pink-600">VITE_GEMINI_API_KEY</span></li>
-            <li>Value: Should start with <span className="font-mono">AIza...</span></li>
-            <li>Did you click <b>Save</b> on the Secrets menu?</li>
-          </ul>
-          <div className="flex gap-2 mt-3">
-            <Button size="sm" variant="outline" className="text-[10px] h-7 px-2" onClick={() => window.location.reload()}>1. Refresh Page</Button>
-            <Button size="sm" variant="outline" className="text-[10px] h-7 px-2" onClick={() => {
-               const val = apiKey;
-               if (!val || val === 'undefined') {
-                 toast.error("Still missing. Did you name it EXACTLY VITE_GEMINI_API_KEY?");
-                 navigator.clipboard.writeText("VITE_GEMINI_API_KEY");
-                 toast.info("Key name copied to clipboard!");
-               } else if (val.length < 10) {
-                 toast.warning(`Key detected but too short (${val.length} chars).`);
-               } else {
-                 const masked = `${val.slice(0, 4)}...${val.slice(-4)}`;
-                 toast.success(`Active Key: ${masked}. AI is ready!`);
-               }
-            }}>2. Check Again</Button>
+        <div className="space-y-4 p-2">
+          <div className="flex items-center gap-2 text-red-600">
+            <X size={20} />
+            <p className="font-bold">Gemini Key Not Found</p>
           </div>
-          <p className="text-[9px] text-gray-400 border-t pt-2 mt-2">Debug Info: {secretHint}</p>
+          
+          <div className="text-xs text-gray-600 space-y-2">
+            <p>I still can't detect your secret. Standard Vite behavior requires a fresh build to see new secrets.</p>
+            <div className="bg-gray-100 p-3 rounded-lg border border-gray-200">
+              <p className="font-mono text-[10px] text-gray-500">Required Secret Name:</p>
+              <p className="font-mono font-bold text-pink-600">VITE_GEMINI_API_KEY</p>
+            </div>
+            <p className="italic text-[10px]">Note: If you just added it, click the refresh button below twice.</p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 h-9" onClick={() => window.location.reload()}>
+              <RefreshCw className="mr-2 h-3 w-3" /> Refresh App
+            </Button>
+            <Button size="sm" variant="outline" className="w-full text-[10px] h-7" onClick={() => {
+               navigator.clipboard.writeText("VITE_GEMINI_API_KEY");
+               toast.success("Name copied to clipboard!");
+            }}>Copy Name to Clipboard</Button>
+          </div>
         </div>, 
-        { duration: 20000 }
+        { duration: 25000, id: 'api-key-error' }
       );
       return;
     }

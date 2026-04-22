@@ -5,8 +5,14 @@ import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, process.cwd(), '');
-  // Platform can use either prefix or direct env var
-  const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "";
+  
+  // Prioritize VITE_ prefix from either process.env (Platform Secrets) or .env files
+  const apiKey = 
+    process.env.VITE_GEMINI_API_KEY || 
+    env.VITE_GEMINI_API_KEY || 
+    process.env.GEMINI_API_KEY || 
+    env.GEMINI_API_KEY || 
+    "";
   
   return {
     base: './',
