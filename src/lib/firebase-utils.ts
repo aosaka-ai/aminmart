@@ -132,8 +132,12 @@ export async function uploadFile(file: File, path: string): Promise<string> {
 
   // Fallback for debugging if user hasn't set them yet
   if (!cloudName || !uploadPreset) {
-    console.warn("Cloudinary configuration missing. Please add VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET to Secrets.");
-    throw new Error('Cloudinary not configured. Please set your Cloud Name and Unsigned Upload Preset in Secrets.');
+    const missing = [];
+    if (!cloudName) missing.push('VITE_CLOUDINARY_CLOUD_NAME');
+    if (!uploadPreset) missing.push('VITE_CLOUDINARY_UPLOAD_PRESET');
+    
+    console.warn(`Cloudinary configuration missing: ${missing.join(', ')}`);
+    throw new Error(`Cloudinary not configured. Please add the following to your Secrets: ${missing.join(' and ')}. After adding them, please refresh the page.`);
   }
 
   try {
