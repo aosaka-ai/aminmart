@@ -993,21 +993,35 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
     }
 
     const apiKey = 
-      process.env.GEMINI_API_KEY || 
       (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-      (import.meta as any).env?.GEMINI_API_KEY;
+      (import.meta as any).env?.GEMINI_API_KEY ||
+      process.env.GEMINI_API_KEY ||
+      process.env.VITE_GEMINI_API_KEY;
     
-    if (!apiKey || apiKey === 'undefined' || apiKey === '""' || apiKey.length < 10) {
-      console.error("[AI] GEMINI_API_KEY is missing or too short");
+    if (!apiKey || apiKey === 'undefined' || apiKey === '""' || apiKey.length < 5) {
+      console.error("[AI] GEMINI_API_KEY is missing or invalid");
+      const secretHint = apiKey === 'undefined' ? "Detected as 'undefined' string." : "Not found.";
       toast.error(
-        <div>
+        <div className="space-y-2">
           <p className="font-bold text-red-600">Gemini API Key missing.</p>
-          <p className="text-xs mt-1 text-gray-600">
-            If you just added it to <b>Secrets</b>, please click <b>"Restart Dev Server"</b> in the Maintenance tab (or refresh the page) to apply the changes.
+          <p className="text-xs text-gray-600 leading-relaxed">
+            I can't see your key yet. Please ensure you added a Secret named <span className="font-mono bg-gray-100 px-1 rounded text-pink-600">VITE_GEMINI_API_KEY</span> in your AI Studio settings.
           </p>
-          <p className="text-[10px] mt-2 text-gray-400">Required Secret Name: <span className="font-mono bg-gray-100 px-1 rounded">VITE_GEMINI_API_KEY</span></p>
+          <div className="flex gap-2 mt-2">
+            <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={() => window.location.reload()}>Refresh Page</Button>
+            <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={() => {
+               const val = apiKey;
+               if (!val || val === 'undefined') {
+                 toast.error("Secret still not detected. Ensure it's named VITE_GEMINI_API_KEY");
+               } else {
+                 const masked = val.length > 8 ? `${val.slice(0, 4)}...${val.slice(-4)}` : "Too short";
+                 toast.success(`Key detected! Format: ${masked}. Try refreshing now.`);
+               }
+            }}>Check Connection</Button>
+          </div>
+          <p className="text-[9px] text-gray-400 italic">Status: {secretHint}</p>
         </div>, 
-        { duration: 10000 }
+        { duration: 15000 }
       );
       return;
     }
@@ -1353,7 +1367,9 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                <Input type="number" placeholder="Stock" value={newProd.stock || ''} onChange={e => setNewProd({...newProd, stock: parseInt(e.target.value)})} />
               <Select value={newProd.categoryId || ""} onValueChange={v => setNewProd({...newProd, categoryId: v})}>
                 <SelectTrigger className="w-full bg-white h-10 border-gray-200 rounded-lg px-3 flex items-center justify-between">
-                  <SelectValue className="text-sm text-gray-700" placeholder={loadingData ? "Loading..." : "Select Category"} />
+                  <SelectValue placeholder={loadingData ? "Loading..." : "Select Category"}>
+                    {newProd.categoryId ? (categories.find(c => c.id === newProd.categoryId)?.name || newProd.categoryId) : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent position="popper" className="z-[100] bg-white border border-gray-200 shadow-lg rounded-lg">
                   {categories.length === 0 ? (
@@ -1438,6 +1454,9 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                     <div>
                       <h4 className="font-bold">{p.name}</h4>
                       <p className="text-xs text-gray-500">Stock: {p.stock} | {CURRENCY} {p.price}</p>
+                      <Badge variant="outline" className="text-[9px] h-4 mt-1 bg-gray-50">
+                        {categories.find(c => c.id === p.categoryId)?.name || 'Unknown Category'}
+                      </Badge>
                     </div>
                   </div>
                   <div className="flex gap-1">
