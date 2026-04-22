@@ -25,6 +25,9 @@ import {
   Sparkles,
   PieChart,
   TrendingUp,
+  ShieldCheck,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from 'motion/react';
@@ -1349,13 +1352,13 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
           <Badge 
             variant="secondary" 
             className={`px-4 py-1 transition-colors ${
-              (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME && import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET) 
+              ((import.meta as any).env.VITE_CLOUDINARY_CLOUD_NAME && (import.meta as any).env.VITE_CLOUDINARY_UPLOAD_PRESET) 
                 ? "bg-green-50 text-green-700 border-green-100" 
                 : "bg-red-50 text-red-700 border-red-100 animate-pulse"
             }`}
           >
-            { (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME && import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET) 
-              ? `Cloudinary: OK (${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME})` 
+            { ((import.meta as any).env.VITE_CLOUDINARY_CLOUD_NAME && (import.meta as any).env.VITE_CLOUDINARY_UPLOAD_PRESET) 
+              ? `Cloudinary: OK (${(import.meta as any).env.VITE_CLOUDINARY_CLOUD_NAME})` 
               : "Cloudinary: Missing Config" 
             }
           </Badge>
@@ -2210,9 +2213,9 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                 <CardContent className="p-4 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
                     {[
-                      { name: 'VITE_GEMINI_API_KEY', val: import.meta.env.VITE_GEMINI_API_KEY },
-                      { name: 'VITE_CLOUDINARY_CLOUD_NAME', val: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME },
-                      { name: 'VITE_CLOUDINARY_UPLOAD_PRESET', val: import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET },
+                      { name: 'VITE_GEMINI_API_KEY', val: (import.meta as any).env.VITE_GEMINI_API_KEY },
+                      { name: 'VITE_CLOUDINARY_CLOUD_NAME', val: (import.meta as any).env.VITE_CLOUDINARY_CLOUD_NAME },
+                      { name: 'VITE_CLOUDINARY_UPLOAD_PRESET', val: (import.meta as any).env.VITE_CLOUDINARY_UPLOAD_PRESET },
                     ].map((env) => (
                       <div key={env.name} className="flex flex-col p-3 rounded-lg bg-gray-50 border border-gray-100">
                         <span className="font-bold text-gray-500 mb-1">{env.name}</span>
@@ -2234,7 +2237,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                       onClick={async () => {
                         const toastId = toast.loading("Testing Gemini Connection...");
                         try {
-                          await generateAIImage("test", "product", "Test User");
+                          await generateAIImage("test", "product");
                           // Success usually won't reach here because it triggers image generation flow
                         } catch (err: any) {
                           if (err.message.includes("not configured")) {

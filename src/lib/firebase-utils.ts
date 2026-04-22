@@ -127,8 +127,8 @@ export async function removeDocument(path: string, id: string) {
 }
 
 export async function uploadFile(file: File, path: string): Promise<string> {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+  const cloudName = (import.meta as any).env.VITE_CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = (import.meta as any).env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
   // Fallback for debugging if user hasn't set them yet
   if (!cloudName || !uploadPreset) {
