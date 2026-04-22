@@ -953,9 +953,9 @@ const AdminView = () => {
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error("[AI] GEMINI_API_KEY is missing in browser environment");
-      toast.error("Gemini API Key is currently unavailable in the browser. Please try again or check settings.");
+    if (!apiKey || apiKey === 'undefined') {
+      console.error("[AI] GEMINI_API_KEY is missing/invalid in browser environment:", apiKey);
+      toast.error("Gemini API Key is not configured. Please check the Secrets section in Settings.");
       return;
     }
 
