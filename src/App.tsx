@@ -946,7 +946,7 @@ const AdminView = () => {
   };
 
   const generateAIImage = async (name: string, type: 'category' | 'product') => {
-    console.log(`[AI] Attempting to generate image for ${type}: ${name}`);
+    console.log(`[AI] Generating image via client for ${type}: ${name}`);
     if (!name) {
       toast.error(`Please enter a ${type} name first`);
       return;
@@ -954,8 +954,8 @@ const AdminView = () => {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error("[AI] GEMINI_API_KEY is missing from environment");
-      toast.error("Gemini API Key is missing. Please contact support or check settings.");
+      console.error("[AI] GEMINI_API_KEY is missing in browser environment");
+      toast.error("Gemini API Key is currently unavailable in the browser. Please try again or check settings.");
       return;
     }
 
@@ -966,20 +966,15 @@ const AdminView = () => {
     try {
       const prompt = `A professional, ultra-high-resolution, and appetizing studio photograph of ${name} for a luxury boutique grocery store mobile app. The style should be clean food photography, minimalist, on a neutral light grey or soft white background, with professional studio lighting. Centered composition. No text.`;
 
-      console.log("[AI] Sending request to Gemini...");
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: [{ text: prompt }]
-        },
+        contents: { parts: [{ text: prompt }] },
         config: {
           imageConfig: {
             aspectRatio: "1:1"
           }
         }
       });
-
-      console.log("[AI] Response received:", response);
 
       let foundImage = false;
       if (response && response.candidates && response.candidates[0].content.parts) {
@@ -999,11 +994,10 @@ const AdminView = () => {
       }
 
       if (!foundImage) {
-        console.warn("[AI] No image parts found in response", response);
-        throw new Error("The AI model returned no image. Try a more descriptive name.");
+        throw new Error("The AI model did not return image data. Try a more descriptive name.");
       }
     } catch (error: any) {
-      console.error("AI Generation Error:", error);
+      console.error("[AI] Error:", error);
       toast.error(`AI Generation failed: ${error.message}`, { id: toastId });
     } finally {
       setIsGenerating(false);
