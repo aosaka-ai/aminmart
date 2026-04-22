@@ -6,6 +6,9 @@ import {defineConfig, loadEnv} from 'vite';
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, process.cwd(), '');
   
+  // Log available keys for debugging (no values for safety)
+  console.log("VITE_CONFIG: Available keys including 'GEMINI':", Object.keys(process.env).filter(k => k.includes('GEMINI')));
+  
   // Prioritize VITE_ prefix from either process.env (Platform Secrets) or .env files
   const apiKey = 
     process.env.VITE_GEMINI_API_KEY || 
@@ -22,7 +25,9 @@ export default defineConfig(({mode}) => {
     },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(apiKey),
-      'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(apiKey)
+      'process.env.VITE_GEMINI_API_KEY': JSON.stringify(apiKey),
+      'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(apiKey),
+      'import.meta.env.GEMINI_API_KEY': JSON.stringify(apiKey)
     },
     resolve: {
       alias: {

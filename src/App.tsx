@@ -994,7 +994,9 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
 
     const apiKey = 
       (import.meta as any).env?.VITE_GEMINI_API_KEY || 
-      process.env.GEMINI_API_KEY;
+      (import.meta as any).env?.GEMINI_API_KEY || 
+      (process.env as any)?.GEMINI_API_KEY ||
+      (process.env as any)?.VITE_GEMINI_API_KEY;
 
     if (!apiKey || apiKey === 'undefined' || apiKey === '""' || apiKey.length < 5) {
       console.error("[AI] Key not found in client environment");
@@ -1008,8 +1010,12 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
           <div className="text-xs text-gray-600 space-y-2">
             <p>I still can't detect your secret. Standard Vite behavior requires a fresh build to see new secrets.</p>
             <div className="bg-gray-100 p-3 rounded-lg border border-gray-200">
-              <p className="font-mono text-[10px] text-gray-500">Required Secret Name:</p>
-              <p className="font-mono font-bold text-pink-600">VITE_GEMINI_API_KEY</p>
+              <p className="font-mono text-[10px] text-gray-500 font-bold">Checklist:</p>
+              <ul className="list-disc pl-4 text-[9px] mt-1 space-y-1">
+                <li>Key Name: <span className="text-pink-600">VITE_GEMINI_API_KEY</span></li>
+                <li>Key Value: Starts with <span className="bg-white px-1">AIza...</span></li>
+                <li>Saved: Did you click the small blue <b>Save</b> checkmark?</li>
+              </ul>
             </div>
             <p className="italic text-[10px]">Note: If you just added it, click the refresh button below twice.</p>
           </div>
@@ -1019,12 +1025,11 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
               <RefreshCw className="mr-2 h-3 w-3" /> Refresh App
             </Button>
             <Button size="sm" variant="outline" className="w-full text-[10px] h-7" onClick={() => {
-               navigator.clipboard.writeText("VITE_GEMINI_API_KEY");
-               toast.success("Name copied to clipboard!");
-            }}>Copy Name to Clipboard</Button>
+               toast.info("Troubleshoot: 1. Delete the Secret. 2. Add it again as VITE_GEMINI_API_KEY. 3. Click Save. 4. Refresh here.");
+            }}>Troubleshoot Profile</Button>
           </div>
         </div>, 
-        { duration: 25000, id: 'api-key-error' }
+        { duration: 30000, id: 'api-key-error' }
       );
       return;
     }
