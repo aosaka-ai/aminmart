@@ -992,19 +992,22 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       return;
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const apiKey = 
+      process.env.GEMINI_API_KEY || 
+      (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+      (import.meta as any).env?.GEMINI_API_KEY;
     
-    if (!apiKey || apiKey === 'undefined' || apiKey === '""') {
-      console.error("[AI] GEMINI_API_KEY is missing/invalid");
+    if (!apiKey || apiKey === 'undefined' || apiKey === '""' || apiKey.length < 10) {
+      console.error("[AI] GEMINI_API_KEY is missing or too short");
       toast.error(
         <div>
           <p className="font-bold text-red-600">Gemini API Key missing.</p>
           <p className="text-xs mt-1 text-gray-600">
-            Please add your key as <span className="font-mono bg-gray-100 px-1 rounded text-pink-600">VITE_GEMINI_API_KEY</span> 
-            in the <b>Secrets</b> section of your Settings.
+            If you just added it to <b>Secrets</b>, please click <b>"Restart Dev Server"</b> in the Maintenance tab (or refresh the page) to apply the changes.
           </p>
+          <p className="text-[10px] mt-2 text-gray-400">Required Secret Name: <span className="font-mono bg-gray-100 px-1 rounded">VITE_GEMINI_API_KEY</span></p>
         </div>, 
-        { duration: 8000 }
+        { duration: 10000 }
       );
       return;
     }
