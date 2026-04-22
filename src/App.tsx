@@ -1346,8 +1346,18 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
         <div className="flex flex-wrap gap-4">
           <Badge variant="outline" className="px-4 py-1">Total Sales: {CURRENCY} {orders.reduce((s, o) => s + o.total, 0).toFixed(2)}</Badge>
           <Badge variant="outline" className="px-4 py-1">Orders: {orders.length}</Badge>
-          <Badge variant="secondary" className="px-4 py-1 bg-blue-50 text-blue-700 border-blue-100">
-            Storage: Free Tier (5GB)
+          <Badge 
+            variant="secondary" 
+            className={`px-4 py-1 transition-colors ${
+              (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME && import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET) 
+                ? "bg-green-50 text-green-700 border-green-100" 
+                : "bg-red-50 text-red-700 border-red-100 animate-pulse"
+            }`}
+          >
+            { (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME && import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET) 
+              ? `Cloudinary: OK (${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME})` 
+              : "Cloudinary: Missing Config" 
+            }
           </Badge>
         </div>
       </div>
@@ -2188,6 +2198,67 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                 </div>
                 <Button variant="destructive" onClick={clearAllCategories}>Delete All Categories</Button>
               </div>
+
+              <Card className="border-gray-200 mt-8">
+                <CardHeader className="bg-gray-50">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <ShieldCheck className="text-blue-600" size={18} />
+                    System Configuration & Secrets Diagnostic
+                  </CardTitle>
+                  <CardDescription className="text-[10px]">Verify if your environment variables are correctly injected into the client.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                    {[
+                      { name: 'VITE_GEMINI_API_KEY', val: import.meta.env.VITE_GEMINI_API_KEY },
+                      { name: 'VITE_CLOUDINARY_CLOUD_NAME', val: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME },
+                      { name: 'VITE_CLOUDINARY_UPLOAD_PRESET', val: import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET },
+                    ].map((env) => (
+                      <div key={env.name} className="flex flex-col p-3 rounded-lg bg-gray-50 border border-gray-100">
+                        <span className="font-bold text-gray-500 mb-1">{env.name}</span>
+                        <div className="flex items-center justify-between">
+                          <code className="text-[10px] bg-white px-2 py-1 rounded border border-gray-100">
+                            {env.val ? `${env.val.substring(0, 4)}...${env.val.substring(env.val.length - 4)}` : 'MISSING'}
+                          </code>
+                          {env.val ? <CheckCircle2 className="text-green-500" size={14} /> : <AlertTriangle className="text-red-500 animate-pulse" size={14} />}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-100 flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-[10px] h-8"
+                      onClick={async () => {
+                        const toastId = toast.loading("Testing Gemini Connection...");
+                        try {
+                          await generateAIImage("test", "product", "Test User");
+                          // Success usually won't reach here because it triggers image generation flow
+                        } catch (err: any) {
+                          if (err.message.includes("not configured")) {
+                            toast.error("Gemini is not configured.", { id: toastId });
+                          } else {
+                            // If it reached generation but failed elsewhere, it's half-working
+                            toast.info("Connection check complete. Check console for details.", { id: toastId });
+                          }
+                        }
+                      }}
+                    >
+                      Test AI Connection
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-[10px] h-8 text-blue-600"
+                      onClick={() => window.location.reload()}
+                    >
+                      <RefreshCw size={12} className="mr-1" /> Force Refresh App
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </CardContent>
           </Card>
         </TabsContent>
