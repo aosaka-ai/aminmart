@@ -22,7 +22,9 @@ import {
   MapPin,
   Navigation,
   Globe,
+  Sparkles,
 } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './AuthProvider';
 import { useCart } from './CartProvider';
@@ -882,6 +884,7 @@ const AdminView = () => {
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [isAdminDialogOpen, setIsAdminDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
@@ -938,6 +941,55 @@ const AdminView = () => {
       return null;
     } finally {
       setUploading(false);
+    }
+  };
+
+  const generateAIImage = async (name: string, type: 'category' | 'product') => {
+    if (!name) {
+      toast.error(`Please enter a ${type} name first`);
+      return;
+    }
+
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    setIsGenerating(true);
+    const toastId = toast.loading(`Generating AI image for "${name}"...`);
+
+    try {
+      const prompt = `A professional, ultra-high-resolution, and appetizing studio photograph of ${name} for a luxury boutique grocery store mobile app. The style should be clean food photography, minimalist, on a neutral light grey or soft white background, with professional studio lighting. Centered composition. No text.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: [{ text: prompt }],
+        config: {
+          imageConfig: {
+            aspectRatio: "1:1"
+          }
+        }
+      });
+
+      let foundImage = false;
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          const base64Data = part.inlineData.data;
+          const imageUrl = `data:image/png;base64,${base64Data}`;
+          
+          if (type === 'category') setNewCat(prev => ({ ...prev, imageUrl }));
+          else setNewProd(prev => ({ ...prev, imageUrl }));
+          
+          foundImage = true;
+          toast.success("AI Image generated successfully!", { id: toastId });
+          break;
+        }
+      }
+
+      if (!foundImage) {
+        throw new Error("No image data found in AI response");
+      }
+    } catch (error: any) {
+      console.error("AI Generation Error:", error);
+      toast.error(`AI Generation failed: ${error.message}. Ensure GEMINI_API_KEY is configured.`, { id: toastId });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -1263,7 +1315,19 @@ const AdminView = () => {
                     {uploading ? <Loader2 className="animate-spin" size={16} /> : <Camera size={16} />}
                     {newProd.imageUrl ? 'Change Image' : 'Upload Image'}
                   </label>
-                  {newProd.imageUrl && <img src={newProd.imageUrl} className="w-10 h-10 rounded object-cover" alt="Preview" />}
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => generateAIImage(newProd.name || '', 'product')}
+                    disabled={isGenerating || !newProd.name}
+                    className="gap-2 text-xs h-9 border-green-200 hover:bg-green-50 text-green-700"
+                  >
+                    {isGenerating ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />}
+                    AI Generate
+                  </Button>
+
+                  {newProd.imageUrl && <img src={newProd.imageUrl} className="w-10 h-10 rounded object-cover shadow-sm ring-1 ring-gray-100" alt="Preview" />}
                 </div>
                 <div className="flex flex-col gap-1">
                   <Input 
@@ -1317,47 +1381,64 @@ const AdminView = () => {
               <CardTitle>{editingCat ? 'Edit Category' : 'Add New Category'}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex gap-4">
-                <Input placeholder="Category Name" value={newCat.name} onChange={e => setNewCat({...newCat, name: e.target.value})} />
-                
-              <div className="flex flex-col gap-2 min-w-[200px]">
-                <div className="flex items-center gap-2">
-                  <Input 
-                    type="file" 
-                    accept="image/*" 
-                    className="hidden" 
-                    id="cat-img" 
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const url = await handleImageUpload(file, 'categories');
-                        if (url) setNewCat({...newCat, imageUrl: url});
-                      }
-                    }}
-                  />
-                  <label htmlFor="cat-img" className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors text-sm font-medium">
-                    {uploading ? <Loader2 className="animate-spin" size={16} /> : <Camera size={16} />}
-                    {newCat.imageUrl ? 'Change Image' : 'Upload Image'}
-                  </label>
-                  {newCat.imageUrl && <img src={newCat.imageUrl} className="w-10 h-10 rounded object-cover" alt="Preview" />}
+              <div className="flex flex-col md:flex-row gap-4 items-end">
+                <div className="flex-1 space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Category Name</label>
+                  <Input placeholder="e.g. Dairy, Fruits, Snacks" value={newCat.name} onChange={e => setNewCat({...newCat, name: e.target.value})} />
                 </div>
-                <Input 
-                  placeholder="Image URL" 
-                  value={newCat.imageUrl} 
-                  onChange={e => setNewCat({...newCat, imageUrl: e.target.value})}
-                  className="text-xs"
-                />
-              </div>
+                
+                <div className="flex flex-col gap-2 min-w-[300px]">
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      id="cat-img" 
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const url = await handleImageUpload(file, 'categories');
+                          if (url) setNewCat({...newCat, imageUrl: url});
+                        }
+                      }}
+                    />
+                    <label htmlFor="cat-img" className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors text-sm font-medium">
+                      {uploading ? <Loader2 className="animate-spin" size={16} /> : <Camera size={16} />}
+                      {newCat.imageUrl ? 'Change' : 'Upload'}
+                    </label>
 
-                <Button onClick={handleSaveCategory} className="bg-green-600 hover:bg-green-700">
-                  {editingCat ? 'Update Category' : 'Add Category'}
-                </Button>
-                {editingCat && (
-                  <Button variant="outline" onClick={() => {
-                    setEditingCat(null);
-                    setNewCat({ name: '', slug: '', icon: '', imageUrl: '' });
-                  }}>Cancel</Button>
-                )}
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => generateAIImage(newCat.name || '', 'category')}
+                      disabled={isGenerating || !newCat.name}
+                      className="gap-2 text-xs h-9 border-green-200 hover:bg-green-50 text-green-700"
+                    >
+                      {isGenerating ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />}
+                      AI Generate
+                    </Button>
+
+                    {newCat.imageUrl && <img src={newCat.imageUrl} className="w-10 h-10 rounded object-cover shadow-sm ring-1 ring-gray-100" alt="Preview" />}
+                  </div>
+                  <Input 
+                    placeholder="or paste Image URL" 
+                    value={newCat.imageUrl} 
+                    onChange={e => setNewCat({...newCat, imageUrl: e.target.value})}
+                    className="text-xs"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={handleSaveCategory} className="bg-green-600 hover:bg-green-700 font-bold px-6">
+                    {editingCat ? 'Update' : 'Add Category'}
+                  </Button>
+                  {editingCat && (
+                    <Button variant="outline" onClick={() => {
+                      setEditingCat(null);
+                      setNewCat({ name: '', slug: '', icon: '', imageUrl: '' });
+                    }}>Cancel</Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
