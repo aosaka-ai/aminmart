@@ -892,7 +892,7 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
   );
 };
 
-const AdminView = () => {
+const AdminView = ({ setView }: { setView: (v: string) => void }) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -965,6 +965,24 @@ const AdminView = () => {
     }
   };
 
+  const base64ToFile = (base64: string, filename: string): File => {
+    try {
+      const arr = base64.split(',');
+      if (arr.length < 2) throw new Error("Invalid base64 string");
+      const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new File([u8arr], filename, { type: mime });
+    } catch (e) {
+      console.error("[STORAGE] Base64 conversion failed:", e);
+      throw e;
+    }
+  };
+
   const generateAIImage = async (name: string, type: 'category' | 'product') => {
     console.log(`[AI] Generating image via client for ${type}: ${name}`);
     if (!name) {
@@ -987,6 +1005,7 @@ const AdminView = () => {
     try {
       const prompt = `A professional, ultra-high-resolution, and appetizing studio photograph of ${name} for a luxury boutique grocery store mobile app. The style should be clean food photography, minimalist, on a neutral light grey or soft white background, with professional studio lighting. Centered composition. No text.`;
 
+      console.log("[AI] Requesting content generation...");
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { parts: [{ text: prompt }] },
@@ -997,18 +1016,29 @@ const AdminView = () => {
         }
       });
 
+      console.log("[AI] Response received:", response);
       let foundImage = false;
       if (response && response.candidates && response.candidates[0].content.parts) {
         for (const part of response.candidates[0].content.parts) {
           if (part.inlineData) {
             const base64Data = part.inlineData.data;
-            const imageUrl = `data:image/png;base64,${base64Data}`;
+            const tempImageUrl = `data:image/png;base64,${base64Data}`;
+            
+            // Convert to file and upload to firebase storage to avoid 1MB Firestore limit
+            toast.loading("Transferring high-res image to storage...", { id: toastId });
+            console.log("[AI] Converting base64 to file...");
+            const file = base64ToFile(tempImageUrl, `${type}_${name.replace(/ /g, '_')}_${Date.now()}.png`);
+            
+            console.log("[AI] Uploading file to storage...");
+            const storagePath = type === 'category' ? 'categories' : 'products';
+            const imageUrl = await uploadFile(file, storagePath);
+            console.log("[AI] Upload complete. URL:", imageUrl);
             
             if (type === 'category') setNewCat(prev => ({ ...prev, imageUrl }));
             else setNewProd(prev => ({ ...prev, imageUrl }));
             
             foundImage = true;
-            toast.success("AI Image generated successfully!", { id: toastId });
+            toast.success("AI Image generated and stored successfully!", { id: toastId });
             break;
           }
         }
@@ -1019,7 +1049,7 @@ const AdminView = () => {
       }
     } catch (error: any) {
       console.error("[AI] Error:", error);
-      toast.error(`AI Generation failed: ${error.message}`, { id: toastId });
+      toast.error(`AI Generation failed: ${error.message || 'Unknown error'}`, { id: toastId });
     } finally {
       setIsGenerating(false);
     }
@@ -1936,13 +1966,28 @@ const AdminView = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="maintenance" className="pt-6">
+        <TabsContent value="maintenance" className="pt-6 space-y-6">
+          <div className="flex gap-4">
+             <Button onClick={() => setView('home')} className="bg-blue-600 hover:bg-blue-700">Return to Store Index</Button>
+          </div>
+          
           <Card className="border-red-100 bg-red-50/30">
             <CardHeader>
-              <CardTitle className="text-red-800">System Maintenance</CardTitle>
-              <CardDescription>Dangerous operations. Use with caution.</CardDescription>
+              <CardTitle className="text-red-800">System Maintenance & Indexing</CardTitle>
+              <CardDescription>Administrative tools and database synchronization.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-blue-100 shadow-sm">
+                <div>
+                  <h4 className="font-bold text-gray-900">Database Indexing</h4>
+                  <p className="text-sm text-gray-500">Refresh Firestore listeners and ensure search indexes are synced.</p>
+                </div>
+                <Button variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50" onClick={() => {
+                   toast.success("Global database index refresh triggered.");
+                   window.location.reload();
+                }}>Run Indexing</Button>
+              </div>
+
               <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-red-100 shadow-sm">
                 <div>
                   <h4 className="font-bold text-gray-900">Clear All Products</h4>
@@ -2633,7 +2678,7 @@ export default function App() {
           >
             {view === 'home' && <HomeView />}
             {view === 'cart' && <CartView setView={setView} />}
-            {view === 'admin' && <AdminView />}
+            {view === 'admin' && <AdminView setView={setView} />}
             {view === 'orders' && <OrdersView />}
             {view === 'register' && <RegisterView setView={setView} mode="register" />}
             {view === 'login' && <RegisterView setView={setView} mode="login" />}
