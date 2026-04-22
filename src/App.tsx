@@ -66,10 +66,20 @@ const CURRENCY = 'EGP';
 const AminMartLogo = ({ className = "w-12 h-12", showBox = true }: { className?: string, showBox?: boolean }) => (
   <div className={`${className} ${showBox ? 'bg-white rounded-xl shadow-sm border border-gray-100' : 'bg-transparent'} flex items-center justify-center relative group transition-all duration-300`}>
     {showBox && <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-50 opacity-30 rounded-xl" />}
+    <img 
+      src="/logo.png" 
+      alt="AminMart" 
+      className="w-[85%] h-[85%] relative z-10 transition-all duration-700 group-hover:scale-110 drop-shadow-md object-contain"
+      onError={(e) => {
+        e.currentTarget.style.display = 'none';
+        const svg = e.currentTarget.parentElement?.querySelector('svg');
+        if (svg) svg.classList.remove('hidden');
+      }}
+    />
     <svg 
       viewBox="0 0 100 100" 
       fill="none" 
-      className="w-full h-full relative z-10 transition-all duration-700 group-hover:scale-110 drop-shadow-md"
+      className="w-full h-full relative z-10 transition-all duration-700 group-hover:scale-110 drop-shadow-md hidden"
     >
       <defs>
         {/* Gradients for the 3D piping and friendly vibe */}
@@ -284,7 +294,11 @@ const CategoryCard = ({ category, isSelected, onClick }: CategoryCardProps) => {
   } else if (name.includes('beverage') || name.includes('drink') || name.includes('soda')) {
     displayImageUrl = 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&q=80&w=1000';
   } else if (name.includes('fruit') || name.includes('veg')) {
-    displayImageUrl = 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&q=80&w=1000';
+    displayImageUrl = 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&fit=crop&q=80&w=1000';
+  } else if (name.includes('dairy') || name.includes('milk') || name.includes('cheese')) {
+    displayImageUrl = 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?auto=format&fit=crop&q=80&w=1000';
+  } else if (name.includes('meat') || name.includes('chicken') || name.includes('beef')) {
+    displayImageUrl = 'https://images.unsplash.com/photo-1607623814075-e512199b008d?auto=format&fit=crop&q=80&w=1000';
   }
 
   return (
@@ -423,8 +437,13 @@ const HomeView = () => {
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-12">
       {/* Hero Section */}
       <div className="relative rounded-[2.5rem] overflow-hidden bg-green-600 h-[350px] flex items-center px-8 sm:px-16 shadow-2xl shadow-green-100 group">
-        <div className="absolute top-8 right-8 text-white/5 pointer-events-none transition-transform group-hover:scale-110 duration-1000">
-           <AminMartLogo className="w-64 h-64 opacity-5 rotate-12" showBox={false} />
+        <div className="absolute top-8 right-8 pointer-events-none transition-transform group-hover:scale-110 duration-1000">
+           <img 
+             src="/logo.png" 
+             className="w-72 h-72 opacity-20 rotate-12 object-contain filter brightness-110" 
+             alt="Logo Accent"
+             onError={(e) => e.currentTarget.style.display = 'none'}
+           />
         </div>
         <div className="relative z-10 max-w-lg space-y-6">
           <Badge className="bg-white/20 text-white border-none backdrop-blur-md px-4 py-1.5 text-xs font-medium uppercase tracking-widest">
@@ -437,11 +456,12 @@ const HomeView = () => {
         </div>
         <div className="absolute right-0 bottom-0 top-0 w-1/2 hidden lg:block">
           <img 
-            src="https://picsum.photos/seed/groceries/1200/800" 
-            className="w-full h-full object-cover opacity-60 mix-blend-soft-light"
-            alt="Hero"
+            src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=2000" 
+            className="w-full h-full object-cover opacity-80 mix-blend-overlay"
+            alt="Hero Background"
             referrerPolicy="no-referrer"
           />
+          <div className="absolute inset-0 bg-gradient-to-l from-transparent to-green-600/50" />
         </div>
       </div>
 
