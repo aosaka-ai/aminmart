@@ -61,13 +61,13 @@ const CURRENCY = 'EGP';
 
 // --- Components ---
 
-const AminMartLogo = ({ className = "w-10 h-10", showBox = true }: { className?: string, showBox?: boolean }) => (
-  <div className={`${className} ${showBox ? 'bg-white rounded-xl shadow-sm border border-gray-100' : 'bg-transparent'} flex items-center justify-center relative overflow-hidden group transition-all duration-300`}>
-    {showBox && <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-50 opacity-30" />}
+const AminMartLogo = ({ className = "w-12 h-12", showBox = true }: { className?: string, showBox?: boolean }) => (
+  <div className={`${className} ${showBox ? 'bg-white rounded-xl shadow-sm border border-gray-100' : 'bg-transparent'} flex items-center justify-center relative group transition-all duration-300`}>
+    {showBox && <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-50 opacity-30 rounded-xl" />}
     <svg 
       viewBox="0 0 100 100" 
       fill="none" 
-      className="w-[92%] h-[92%] relative z-10 transition-all duration-700 group-hover:scale-110 drop-shadow-md"
+      className="w-full h-full relative z-10 transition-all duration-700 group-hover:scale-110 drop-shadow-md"
     >
       <defs>
         {/* Gradients for the 3D piping and friendly vibe */}
@@ -272,6 +272,11 @@ interface CategoryCardProps {
 }
 
 const CategoryCard = ({ category, isSelected, onClick }: CategoryCardProps) => {
+  // Use professional curated images for specific categories if the database imageUrl is generic/missing
+  const displayImageUrl = category.name.toLowerCase().includes('bakery') || category.name.toLowerCase().includes('bread')
+    ? 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=1000'
+    : (category.imageUrl || `https://picsum.photos/seed/${category.name}/400/500`);
+
   return (
     <motion.div
       whileHover={{ y: -4, scale: 1.02 }}
@@ -282,7 +287,7 @@ const CategoryCard = ({ category, isSelected, onClick }: CategoryCardProps) => {
       }`}
     >
       <img 
-        src={category.imageUrl || `https://picsum.photos/seed/${category.name}/400/500`} 
+        src={displayImageUrl} 
         alt={category.name}
         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         referrerPolicy="no-referrer"
