@@ -161,52 +161,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithEmployeeId = async (id: string, pass: string) => {
     const toastId = toast.loading('Verifying Admin Credentials...');
     const normalizedId = id.trim().toUpperCase();
-    console.log(`[AUTH] Attempting staff login for ID: ${normalizedId}`);
+    console.log(`[AUTH-TRACE] Starting staff login check for normalized ID: "${normalizedId}"`);
     
     try {
       // Step 1: Try direct document lookup (Fastest & most secure)
       let credDoc: any = null;
       try {
+        console.log(`[AUTH-TRACE] Attempting direct fetch: staffCredentials/${normalizedId}`);
         credDoc = await getDocument<any>('staffCredentials', normalizedId);
+        if (credDoc) console.log(`[AUTH-TRACE] Direct fetch SUCCESS for ${normalizedId}`);
       } catch (docErr: any) {
-        console.error("[AUTH] Direct document lookup error:", docErr);
-        // If it's a permission error, we catch it but let the query fallback or final error handle it
+        console.warn("[AUTH-TRACE] Direct lookup errored (might be expected if not found):", docErr.message || docErr);
       }
       
       // Step 2: Fallback to query if direct lookup found nothing
       if (!credDoc) {
-        console.log(`[AUTH] Direct lookup failed for ${normalizedId}, trying collection query fallback...`);
+        console.log(`[AUTH-TRACE] Direct lookup failed/null, trying collection query for employeeId == "${normalizedId}"`);
         const results = await getCollection<any>('staffCredentials', [
           where('employeeId', '==', normalizedId)
         ]);
         if (results && results.length > 0) {
           credDoc = results[0];
-          console.log(`[AUTH] Query fallback succeeded for ${normalizedId}`);
+          console.log(`[AUTH-TRACE] Query fallback SUCCESS. Found:`, credDoc.id);
+        } else {
+          console.log(`[AUTH-TRACE] Query fallback returned 0 results for "${normalizedId}"`);
         }
       }
 
       if (!credDoc) {
-        console.warn(`[AUTH] No credential found for ID: ${normalizedId} after all attempts.`);
-        throw new Error('Employee ID not found. Please ensure the admin profile has been created.');
+        console.error(`[AUTH-CRITICAL] Failed to find credentials for ID: "${normalizedId}" in all database passes.`);
+        throw new Error('Employee ID not found. Please ensure the admin profile has been created and you used the correct ID.');
       }
       
+      console.log(`[AUTH-TRACE] Credential document found. Verifying password...`);
       if (credDoc.password !== pass) {
+        console.warn(`[AUTH-TRACE] Password mismatch for ID: ${normalizedId}`);
         throw new Error('Invalid security password');
       }
 
       // Step 3: Fetch the actual user profile
+      console.log(`[AUTH-TRACE] Password OK. Fetching user profile for UID: ${credDoc.uid}`);
       const userDoc = await getDocument<UserProfile>('users', credDoc.uid);
       if (!userDoc) {
-        throw new Error('Admin profile corrupted (User doc missing)');
+        console.error(`[AUTH-CRITICAL] Credential exists but linked user doc "${credDoc.uid}" is MISSING.`);
+        throw new Error('Admin profile corrupted (User record missing)');
       }
 
-      // NOTE: Prototype implementation for local admin bypass
+      // Allow staff access
       setProfile(userDoc);
+      console.log(`[AUTH-TRACE] Login complete. Greeting ${userDoc.firstName}`);
       toast.success(`Access Granted: Welcome, ${userDoc.firstName}!`, { id: toastId });
     } catch (error: any) {
-      console.error("[AUTH] Staff login failed final:", error);
+      console.error("[AUTH-FINAL] Staff login error loop termination:", error);
       const msg = error.message.includes('permission-denied') 
-        ? "Security Error: Permission denied by database." 
+        ? "Security Error: Database denied access to credential records." 
         : error.message;
       toast.error(msg, { id: toastId });
       throw error;

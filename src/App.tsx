@@ -129,7 +129,7 @@ const Navbar = ({ setView, currentView }: { setView: (v: string) => void, curren
                   <Button variant="ghost" size="icon" onClick={() => refreshUser()} title="Refresh Profile">
                     <RefreshCw size={18} className="text-gray-400 hover:text-green-600 transition-colors" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={logout}>
+                  <Button variant="ghost" size="icon" onClick={async () => { await logout(); setView('home'); }} title="Sign Out">
                     <LogOut size={20} className="text-gray-500" />
                   </Button>
                 </div>
@@ -1031,6 +1031,35 @@ const AdminView = () => {
     }
   };
 
+  const repairStaffCredentials = async () => {
+    const toastId = toast.loading("Repairing staff logins...");
+    let repaired = 0;
+    try {
+      const admins = users.filter(u => u.role === 'admin');
+      for (const admin of admins) {
+        if (admin.employeeId) {
+          const normalized = admin.employeeId.trim().toUpperCase();
+          const targetUid = admin.uid || admin.id || (admin as any).id;
+          if (!targetUid) {
+            console.warn("[REPAIR] Admin missing UID/ID:", admin.email);
+            continue;
+          }
+          
+          await createDocument('staffCredentials', {
+            uid: targetUid,
+            password: admin.password || '123456',
+            employeeId: normalized
+          }, normalized);
+          repaired++;
+        }
+      }
+      toast.success(`Repaired ${repaired} staff credential records.`, { id: toastId });
+    } catch (err: any) {
+      console.error("[REPAIR] Critical failure:", err);
+      toast.error(`Repair failed: ${err.message}`, { id: toastId });
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
       <div className="flex items-center justify-between">
@@ -1655,10 +1684,17 @@ const AdminView = () => {
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-red-100 shadow-sm">
                 <div>
-                  <h4 className="font-bold text-gray-900">Clear All Products</h4>
-                  <p className="text-sm text-gray-500">Permanently delete all products from the database.</p>
+                  <h4 className="font-bold text-gray-900">Repair Staff Logins</h4>
+                  <p className="text-sm text-gray-500">Regenerate missing credentials for all existing administrators.</p>
                 </div>
-                <Button variant="destructive" onClick={clearAllProducts}>Delete All Products</Button>
+                <Button variant="outline" className="border-purple-200 text-purple-600 hover:bg-purple-50" onClick={repairStaffCredentials}>Repair Credentials</Button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-red-100 shadow-sm">
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base">Legacy Operations</h3>
+                  <p className="text-sm text-gray-500 italic">Historical data cleanup</p>
+                </div>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-red-100 shadow-sm">
