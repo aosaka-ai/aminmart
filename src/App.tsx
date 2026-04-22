@@ -975,7 +975,8 @@ const AdminView = () => {
         employeeId: normalizedEmployeeId,
         joinDate: new Date().toISOString().split('T')[0],
         uid: uid,
-        isPreRegistered: true
+        isPreRegistered: true,
+        isVerified: true // Admins don't need verification
       }, uid);
 
       // 2. Create the login credential link
@@ -2318,9 +2319,9 @@ export default function App() {
   const [view, setView] = useState('home');
   const { profile, loading } = useAuth();
 
-  // Redirect to verification if not verified
+  // Redirect to verification if not verified (Only for customers)
   useEffect(() => {
-    if (profile && !profile.isVerified && view !== 'verification') {
+    if (profile && profile.role === 'customer' && !profile.isVerified && view !== 'verification') {
       setView('verification');
     }
   }, [profile, view]);

@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 ...preRegProfile, 
                 uid: user.uid, 
                 isPreRegistered: false,
-                isVerified: user.emailVerified 
+                isVerified: (user.emailVerified || preRegProfile.role === 'admin' || user.email === 'a.osaka@gmail.com') 
               };
               // Delete the old pending document and create new with UID
               await removeDocument('users', preRegProfile.id);
@@ -94,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: user.email || undefined,
               displayName: user.displayName || undefined,
               role: user.email === 'a.osaka@gmail.com' ? 'admin' : 'customer',
+              isVerified: user.email === 'a.osaka@gmail.com', // Primary admin auto-verified
               addresses: []
             };
             await createDocument('users', newProfile, user.uid);
