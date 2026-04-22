@@ -992,36 +992,48 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       return;
     }
 
-    const apiKey = 
+    const rawKey = 
       (import.meta as any).env?.VITE_GEMINI_API_KEY ||
       (import.meta as any).env?.GEMINI_API_KEY ||
       process.env.GEMINI_API_KEY ||
       process.env.VITE_GEMINI_API_KEY;
+
+    // Clean key and handle common errors (stripping quotes, trimming)
+    const apiKey = rawKey?.replace(/['"]+/g, '').trim();
     
     if (!apiKey || apiKey === 'undefined' || apiKey === '""' || apiKey.length < 5) {
       console.error("[AI] GEMINI_API_KEY is missing or invalid");
-      const secretHint = apiKey === 'undefined' ? "Detected as 'undefined' string." : "Not found.";
+      const secretHint = !apiKey ? "Not found." : apiKey === 'undefined' ? "Detected as 'undefined' string." : "Too short.";
       toast.error(
         <div className="space-y-2">
-          <p className="font-bold text-red-600">Gemini API Key missing.</p>
+          <p className="font-bold text-red-600">Gemini API Key still missing.</p>
           <p className="text-xs text-gray-600 leading-relaxed">
-            I can't see your key yet. Please ensure you added a Secret named <span className="font-mono bg-gray-100 px-1 rounded text-pink-600">VITE_GEMINI_API_KEY</span> in your AI Studio settings.
+            Vite is unable to pick up your key. Please verify the following:
           </p>
-          <div className="flex gap-2 mt-2">
-            <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={() => window.location.reload()}>Refresh Page</Button>
-            <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={() => {
+          <ul className="text-[10px] text-gray-500 list-disc pl-4 space-y-1">
+            <li>Name: <span className="font-mono font-bold text-pink-600">VITE_GEMINI_API_KEY</span></li>
+            <li>Value: Should start with <span className="font-mono">AIza...</span></li>
+            <li>Did you click <b>Save</b> on the Secrets menu?</li>
+          </ul>
+          <div className="flex gap-2 mt-3">
+            <Button size="sm" variant="outline" className="text-[10px] h-7 px-2" onClick={() => window.location.reload()}>1. Refresh Page</Button>
+            <Button size="sm" variant="outline" className="text-[10px] h-7 px-2" onClick={() => {
                const val = apiKey;
                if (!val || val === 'undefined') {
-                 toast.error("Secret still not detected. Ensure it's named VITE_GEMINI_API_KEY");
+                 toast.error("Still missing. Did you name it EXACTLY VITE_GEMINI_API_KEY?");
+                 navigator.clipboard.writeText("VITE_GEMINI_API_KEY");
+                 toast.info("Key name copied to clipboard!");
+               } else if (val.length < 10) {
+                 toast.warning(`Key detected but too short (${val.length} chars).`);
                } else {
-                 const masked = val.length > 8 ? `${val.slice(0, 4)}...${val.slice(-4)}` : "Too short";
-                 toast.success(`Key detected! Format: ${masked}. Try refreshing now.`);
+                 const masked = `${val.slice(0, 4)}...${val.slice(-4)}`;
+                 toast.success(`Active Key: ${masked}. AI is ready!`);
                }
-            }}>Check Connection</Button>
+            }}>2. Check Again</Button>
           </div>
-          <p className="text-[9px] text-gray-400 italic">Status: {secretHint}</p>
+          <p className="text-[9px] text-gray-400 border-t pt-2 mt-2">Debug Info: {secretHint}</p>
         </div>, 
-        { duration: 15000 }
+        { duration: 20000 }
       );
       return;
     }
