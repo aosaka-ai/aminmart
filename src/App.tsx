@@ -23,6 +23,8 @@ import {
   Navigation,
   Globe,
   Sparkles,
+  PieChart,
+  TrendingUp,
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from 'motion/react';
@@ -900,7 +902,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
   
   // Form states
   const [newCat, setNewCat] = useState<Partial<Category>>({ name: '', slug: '', icon: '', imageUrl: '' });
-  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
+  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: string, name?: string } | null>(null);
@@ -993,8 +995,14 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
     const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
     
     if (!apiKey || apiKey === 'undefined' || apiKey === '""') {
-      console.error("[AI] GEMINI_API_KEY is missing/invalid in browser environment");
-      toast.error("Gemini API Key is not configured. Please check the Secrets section in Settings.");
+      console.error("[AI] GEMINI_API_KEY is missing/invalid");
+      toast.error(
+        <div>
+          <p className="font-bold">Gemini API Key missing.</p>
+          <p className="text-xs">If you opened from GitHub, please add your <span className="font-mono bg-black/10 px-1 rounded">GEMINI_API_KEY</span> to the <b>Secrets</b> section in Settings.</p>
+        </div>, 
+        { duration: 6000 }
+      );
       return;
     }
 
@@ -1112,7 +1120,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       toast.success("Product added");
     }
     
-    setNewProd({ name: '', price: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
+    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
     setEditingProd(null);
   };
 
@@ -1317,10 +1325,11 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       </div>
 
       <Tabs defaultValue="products" className="w-full">
-        <TabsList className="grid w-full grid-cols-6 rounded-xl p-1 bg-gray-100">
+        <TabsList className="grid w-full grid-cols-7 rounded-xl p-1 bg-gray-100">
           <TabsTrigger value="products" className="rounded-lg">Inventory</TabsTrigger>
           <TabsTrigger value="categories" className="rounded-lg">Categories</TabsTrigger>
           <TabsTrigger value="orders" className="rounded-lg">Orders</TabsTrigger>
+          <TabsTrigger value="reports" className="rounded-lg">Reports</TabsTrigger>
           <TabsTrigger value="admins" className="rounded-lg">Admins</TabsTrigger>
           <TabsTrigger value="customers" className="rounded-lg">Customers</TabsTrigger>
           <TabsTrigger value="maintenance" className="rounded-lg">Maintenance</TabsTrigger>
@@ -1333,8 +1342,9 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input placeholder="Product Name" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})} />
-              <Input type="number" placeholder="Price" value={newProd.price} onChange={e => setNewProd({...newProd, price: parseFloat(e.target.value)})} />
-              <Input type="number" placeholder="Stock" value={newProd.stock} onChange={e => setNewProd({...newProd, stock: parseInt(e.target.value)})} />
+               <Input type="number" placeholder="Retail Price" value={newProd.price || ''} onChange={e => setNewProd({...newProd, price: parseFloat(e.target.value)})} />
+               <Input type="number" placeholder="Cost Price (for Profits)" value={newProd.costPrice || ''} onChange={e => setNewProd({...newProd, costPrice: parseFloat(e.target.value)})} />
+               <Input type="number" placeholder="Stock" value={newProd.stock || ''} onChange={e => setNewProd({...newProd, stock: parseInt(e.target.value)})} />
               <Select value={newProd.categoryId || ""} onValueChange={v => setNewProd({...newProd, categoryId: v})}>
                 <SelectTrigger className="w-full bg-white h-10 border-gray-200 rounded-lg px-3 flex items-center justify-between">
                   <SelectValue className="text-sm text-gray-700" placeholder={loadingData ? "Loading..." : "Select Category"} />
@@ -1406,7 +1416,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                 {editingProd && (
                   <Button variant="outline" onClick={() => {
                     setEditingProd(null);
-                    setNewProd({ name: '', price: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
+                    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
                   }}>Cancel</Button>
                 )}
               </div>
@@ -1963,6 +1973,140 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                 ))}
               </div>
             </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reports" className="pt-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <Card className="border-none shadow-sm bg-gradient-to-br from-green-50 to-emerald-50">
+                <CardHeader className="pb-2">
+                   <CardDescription className="text-green-700 font-bold uppercase tracking-widest text-[10px]">Total Inventory Value</CardDescription>
+                   <CardTitle className="text-2xl text-green-900">{CURRENCY} {products.reduce((acc, p) => acc + (p.price * p.stock), 0).toLocaleString()}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                   <div className="text-xs text-green-600 font-medium">Retail value of all items in stock</div>
+                </CardContent>
+             </Card>
+
+             <Card className="border-none shadow-sm bg-gradient-to-br from-blue-50 to-indigo-50">
+                <CardHeader className="pb-2">
+                   <CardDescription className="text-blue-700 font-bold uppercase tracking-widest text-[10px]">Total Potential Profit</CardDescription>
+                   <CardTitle className="text-2xl text-blue-900">
+                      {CURRENCY} {products.reduce((acc, p) => acc + ((p.price - (p.costPrice || 0)) * p.stock), 0).toLocaleString()}
+                   </CardTitle>
+                </CardHeader>
+                <CardContent>
+                   <div className="text-xs text-blue-600 font-medium italic">Based on full stock liquidation</div>
+                </CardContent>
+             </Card>
+
+             <Card className="border-none shadow-sm bg-gradient-to-br from-orange-50 to-red-50">
+                <CardHeader className="pb-2">
+                   <CardDescription className="text-orange-700 font-bold uppercase tracking-widest text-[10px]">Critical Low Stock</CardDescription>
+                   <CardTitle className="text-2xl text-orange-900">{products.filter(p => p.stock < 5).length} Items</CardTitle>
+                </CardHeader>
+                <CardContent>
+                   <div className="text-xs text-orange-600 font-medium">Products with less than 5 units</div>
+                </CardContent>
+             </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+             <Card className="border-gray-100">
+                <CardHeader>
+                   <CardTitle className="text-lg flex items-center gap-2">
+                      <Package className="text-orange-500" size={20} />
+                      Low Stock Alert List
+                   </CardTitle>
+                   <CardDescription>Order immediate restocking for these items.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                   <ScrollArea className="h-[300px] pr-4">
+                      <div className="space-y-3">
+                         {products.filter(p => p.stock < 5).length === 0 ? (
+                            <div className="text-center py-10 text-gray-400 italic">No low stock items! Great job.</div>
+                         ) : (
+                            products.filter(p => p.stock < 5).map(p => (
+                               <div key={p.id} className="flex items-center justify-between p-3 bg-red-50/50 border border-red-100 rounded-xl">
+                                  <div className="flex items-center gap-3">
+                                     <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-xs">
+                                        {p.stock}
+                                     </div>
+                                     <span className="font-bold text-sm text-gray-800">{p.name}</span>
+                                  </div>
+                                  <Badge variant="destructive" className="text-[10px]">Restock Needed</Badge>
+                               </div>
+                            ))
+                         )}
+                      </div>
+                   </ScrollArea>
+                </CardContent>
+             </Card>
+
+             <Card className="border-gray-100">
+                <CardHeader>
+                   <CardTitle className="text-lg flex items-center gap-2">
+                      <PieChart className="text-green-500" size={20} />
+                      Inventory & Quantities
+                   </CardTitle>
+                   <CardDescription>Breakdown of stock volume across the store.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                   <ScrollArea className="h-[300px] pr-4">
+                      <div className="space-y-2">
+                         {products.sort((a, b) => b.stock - a.stock).map(p => (
+                            <div key={p.id} className="flex items-center justify-between p-2 hover:bg-gray-50 transition-colors rounded-lg">
+                               <span className="text-sm text-gray-600">{p.name}</span>
+                               <div className="flex items-center gap-4">
+                                  <span className="text-xs font-mono text-gray-400">{p.unit || 'pc'}</span>
+                                  <span className={`text-sm font-bold w-12 text-right ${p.stock < 5 ? 'text-red-600' : 'text-gray-900'}`}>{p.stock}</span>
+                               </div>
+                            </div>
+                         ))}
+                      </div>
+                   </ScrollArea>
+                </CardContent>
+             </Card>
+          </div>
+          
+          <Card className="border-gray-100">
+             <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                   <TrendingUp className="text-blue-500" size={20} />
+                   Financial Performance (Estimated)
+                </CardTitle>
+                <CardDescription>Analysis of margins and revenue potential based on stock.</CardDescription>
+             </CardHeader>
+             <CardContent>
+                <div className="overflow-x-auto">
+                   <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] font-bold">
+                         <tr>
+                            <th className="px-4 py-3">Product Name</th>
+                            <th className="px-4 py-3">Cost</th>
+                            <th className="px-4 py-3">Retail</th>
+                            <th className="px-4 py-3">Margin %</th>
+                            <th className="px-4 py-3">Potential Profit</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                         {products.map(p => {
+                            const margin = p.costPrice ? ((p.price - p.costPrice) / p.price) * 100 : 0;
+                            const profit = (p.price - (p.costPrice || 0)) * p.stock;
+                            return (
+                               <tr key={p.id} className="hover:bg-gray-50/50">
+                                  <td className="px-4 py-3 font-medium">{p.name}</td>
+                                  <td className="px-4 py-3 font-mono text-gray-500">{CURRENCY} {(p.costPrice || 0).toFixed(2)}</td>
+                                  <td className="px-4 py-3 font-mono text-gray-900">{CURRENCY} {p.price.toFixed(2)}</td>
+                                  <td className={`px-4 py-3 font-bold ${margin > 30 ? 'text-green-600' : 'text-orange-500'}`}>{margin.toFixed(0)}%</td>
+                                  <td className="px-4 py-3 font-bold text-gray-900">{CURRENCY} {profit.toFixed(2)}</td>
+                               </tr>
+                            );
+                         })}
+                      </tbody>
+                   </table>
+                </div>
+             </CardContent>
           </Card>
         </TabsContent>
 
