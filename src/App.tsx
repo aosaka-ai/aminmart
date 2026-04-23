@@ -391,19 +391,32 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                updateQuantity(cartItem.id, cartItem.quantity + 1);
+                const nextQty = cartItem.quantity + 1;
+                const baseWeight = product.baseWeightGm || 250;
+                
+                if (product.isWeighted) {
+                  if (product.stockKg !== undefined && (nextQty * baseWeight / 1000) > product.stockKg) {
+                    toast.error(`Only ${product.stockKg}kg available`);
+                    return;
+                  }
+                } else if (product.stock !== undefined && nextQty > product.stock) {
+                  toast.error(`Only ${product.stock} items available`);
+                  return;
+                }
+                
+                updateQuantity(cartItem.id, nextQty);
               }}
-              className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-green-600 shadow-sm"
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-green-600 shadow-sm disabled:opacity-30"
             >
               <Plus size={12} />
             </button>
           </div>
         ) : (
           <button 
-            disabled={product.stock <= 0}
+            disabled={product.isWeighted ? (product.stockKg !== undefined && product.stockKg < ((product.baseWeightGm || 250) / 1000)) : (product.stock <= 0)}
             onClick={(e) => {
               e.stopPropagation();
-              addItem(product); // Standard add 1 unit (which is 250g for weighted)
+              addItem(product);
               toast.success(`${product.name} added to basket`);
             }}
             className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center shadow-lg shadow-green-100 transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -636,7 +649,21 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
       const orderData = {
         userId: profile.uid,
         userName: `${profile.firstName} ${profile.lastName}`,
-        items: items.map(i => ({ productId: i.id, name: i.name, quantity: i.quantity, price: i.price })),
+        items: items.map(i => {
+          const formatted = i.isWeighted 
+            ? ((i.quantity * (i.baseWeightGm || 250)) < 1000 
+                ? `${i.quantity * (i.baseWeightGm || 250)} gm` 
+                : `${(i.quantity * (i.baseWeightGm || 250)) / 1000} kg`)
+            : `${i.quantity} units`;
+          
+          return { 
+            productId: i.id, 
+            name: i.name, 
+            quantity: i.quantity, 
+            price: i.price,
+            formattedQuantity: formatted
+          };
+        }),
         total,
         status: 'pending',
         paymentMethod,
@@ -750,7 +777,20 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
                       </span>
                       <button 
                         onClick={() => {
-                          updateQuantity(item.id, item.quantity + 1);
+                          const nextQty = item.quantity + 1;
+                          const baseWeight = item.baseWeightGm || 250;
+                          
+                          if (item.isWeighted) {
+                            if (item.stockKg !== undefined && (nextQty * baseWeight / 1000) > item.stockKg) {
+                              toast.error(`Only ${item.stockKg}kg available`);
+                              return;
+                            }
+                          } else if (item.stock !== undefined && nextQty > item.stock) {
+                            toast.error(`Only ${item.stock} items available`);
+                            return;
+                          }
+                          
+                          updateQuantity(item.id, nextQty);
                         }} 
                         className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-green-600"
                       >
@@ -1559,9 +1599,24 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                     {p.imageUrl && <img src={p.imageUrl} className="w-10 h-10 rounded object-cover" alt={p.name} />}
                     <div>
                       <h4 className="font-bold">{p.name}</h4>
-                      <p className="text-xs text-gray-500">
-                        {p.isWeighted ? `Weight: ${p.stockKg} KG` : `Stock: ${p.stock}`} | {CURRENCY} {p.price}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-gray-500">
+                          {p.isWeighted ? `Weight: ${p.stockKg} KG` : `Stock: ${p.stock}`} | {CURRENCY} {p.price}
+                        </p>
+                        {p.isWeighted ? (
+                          p.stockKg !== undefined && p.stockKg < 20 && (
+                            <Badge variant="outline" className="text-[9px] h-4 bg-orange-50 text-orange-600 border-orange-200">
+                              {'Low Stock (< 20kg)'}
+                            </Badge>
+                          )
+                        ) : (
+                          p.stock !== undefined && p.stock < 40 && (
+                            <Badge variant="outline" className="text-[9px] h-4 bg-orange-50 text-orange-600 border-orange-200">
+                              {'Low Stock (< 40pc)'}
+                            </Badge>
+                          )
+                        )}
+                      </div>
                       <Badge variant="outline" className="text-[9px] h-4 mt-1 bg-gray-50">
                         {categories.find(c => c.id === p.categoryId)?.name || 'Unknown Category'}
                       </Badge>
@@ -1707,7 +1762,9 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                     <p className="font-semibold">Items:</p>
                     <ul className="list-disc list-inside text-xs text-gray-600">
                       {order.items.map((item, idx) => (
-                        <li key={idx}>{item.name} x {item.quantity} ({CURRENCY} {item.price})</li>
+                        <li key={idx}>
+                          <span className="font-bold text-gray-900">{item.name}</span> x {item.formattedQuantity || item.quantity} ({CURRENCY} {item.price})
+                        </li>
                       ))}
                     </ul>
                   </div>

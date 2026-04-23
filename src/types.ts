@@ -66,6 +66,7 @@ export interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  formattedQuantity?: string;
 }
 
 export interface Order {
