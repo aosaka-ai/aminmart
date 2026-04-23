@@ -58,7 +58,7 @@ import {
 } from '@/components/ui/select';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
-import { collection, onSnapshot, query, orderBy, Timestamp, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, Timestamp, where, increment } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { Category, Product, Order, Address, UserProfile } from './types';
 import { createDocument, updateDocument, removeDocument, uploadFile } from './lib/firebase-utils';
@@ -344,7 +344,9 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
       
       <div className="space-y-1">
         <h3 className="text-[10px] uppercase tracking-wider font-bold text-green-600 mb-1">{categoryName || 'General'}</h3>
-        <p className="font-semibold text-gray-900 line-clamp-1 text-sm">{product.name}</p>
+        <p className="font-semibold text-gray-900 line-clamp-1 text-sm">
+          {product.name}{product.weightDisplay ? `, ${product.weightDisplay}` : ''}
+        </p>
         <p className="text-[11px] text-gray-500 line-clamp-2 h-8 leading-tight">{product.description}</p>
         {product.specification && (
           <div className="mt-2 p-1.5 bg-orange-50 rounded-lg border border-orange-100/50">
@@ -675,15 +677,19 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
       console.log("Creating order:", orderData);
       await createDocument('orders', orderData);
       
-      // Update stock
+      // Update stock and sales tracking
       for (const item of items) {
+        const updates: any = { soldCount: increment(item.quantity) };
+        
         if (item.isWeighted && typeof item.stockKg === 'number') {
           // Each unit in quantity represents baseWeightGm (default 250g)
           const weightPerUnitKg = (item.baseWeightGm || 250) / 1000;
-          await updateDocument('products', item.id, { stockKg: item.stockKg - (item.quantity * weightPerUnitKg) });
+          updates.stockKg = item.stockKg - (item.quantity * weightPerUnitKg);
         } else if (typeof item.stock === 'number') {
-          await updateDocument('products', item.id, { stock: item.stock - item.quantity });
+          updates.stock = item.stock - item.quantity;
         }
+        
+        await updateDocument('products', item.id, updates);
       }
 
       clearCart();
@@ -974,7 +980,21 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
   
   // Form states
   const [newCat, setNewCat] = useState<Partial<Category>>({ name: '', slug: '', icon: '', imageUrl: '', order: 0 });
-  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, costPrice: 0, stock: 0, stockKg: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '', baseWeightGm: 250 });
+  const [newProd, setNewProd] = useState<Partial<Product>>({ 
+    name: '', 
+    price: 0, 
+    costPrice: 0, 
+    stock: 0, 
+    stockKg: 0, 
+    categoryId: '', 
+    unit: 'pc', 
+    imageUrl: '', 
+    isWeighted: false, 
+    specification: '', 
+    baseWeightGm: 250, 
+    weightDisplay: '',
+    soldCount: 0 
+  });
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: string, name?: string } | null>(null);
@@ -1247,7 +1267,21 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       toast.success("Product added");
     }
     
-    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, stockKg: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '', baseWeightGm: 250 });
+    setNewProd({ 
+      name: '', 
+      price: 0, 
+      costPrice: 0, 
+      stock: 0, 
+      stockKg: 0, 
+      categoryId: '', 
+      unit: 'pc', 
+      imageUrl: '', 
+      isWeighted: false, 
+      specification: '', 
+      baseWeightGm: 250,
+      weightDisplay: '',
+      soldCount: 0
+    });
     setEditingProd(null);
   };
 
@@ -1258,7 +1292,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
 
   const startEditProduct = (prod: Product) => {
     setEditingProd(prod);
-    setNewProd({ ...prod, baseWeightGm: prod.baseWeightGm || 250 });
+    setNewProd({ ...prod, baseWeightGm: prod.baseWeightGm || 250, weightDisplay: prod.weightDisplay || '', soldCount: prod.soldCount || 0 });
   };
 
   const updateOrderStatus = async (orderId: string, status: string) => {
@@ -1478,7 +1512,10 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
               <CardTitle>{editingProd ? 'Edit Product' : 'Add New Product'}</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input placeholder="Product Name" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})} />
+              <div className="flex flex-col gap-2">
+                <Input placeholder="Product Name" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})} />
+                <Input placeholder="Size/Weight Display (e.g. 165g, 750ml)" value={newProd.weightDisplay} onChange={e => setNewProd({...newProd, weightDisplay: e.target.value})} />
+              </div>
                <Input type="number" placeholder="Retail Price" value={newProd.price || ''} onChange={e => setNewProd({...newProd, price: parseFloat(e.target.value)})} />
                <Input type="number" placeholder="Cost Price (for Profits)" value={newProd.costPrice || ''} onChange={e => setNewProd({...newProd, costPrice: parseFloat(e.target.value)})} />
                {newProd.isWeighted ? (
@@ -1584,7 +1621,21 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                 {editingProd && (
                   <Button variant="outline" onClick={() => {
                     setEditingProd(null);
-                    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, stockKg: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '', baseWeightGm: 250 });
+                    setNewProd({ 
+                      name: '', 
+                      price: 0, 
+                      costPrice: 0, 
+                      stock: 0, 
+                      stockKg: 0, 
+                      categoryId: '', 
+                      unit: 'pc', 
+                      imageUrl: '', 
+                      isWeighted: false, 
+                      specification: '', 
+                      baseWeightGm: 250,
+                      weightDisplay: '',
+                      soldCount: 0
+                    });
                   }}>Cancel</Button>
                 )}
               </div>
@@ -1598,9 +1649,14 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                   <div className="flex items-center gap-3">
                     {p.imageUrl && <img src={p.imageUrl} className="w-10 h-10 rounded object-cover" alt={p.name} />}
                     <div>
-                      <h4 className="font-bold">{p.name}</h4>
+                      <h4 className="font-bold flex items-center gap-2">
+                        {p.name} {p.weightDisplay && <span className="text-[10px] text-gray-400 font-normal">({p.weightDisplay})</span>}
+                        {(p.isWeighted ? (p.stockKg || 0) <= 0 : (p.stock || 0) <= 0) && (
+                          <Badge variant="destructive" className="text-[8px] h-3 px-1 uppercase leading-none">Empty</Badge>
+                        )}
+                      </h4>
                       <div className="flex items-center gap-2">
-                        <p className="text-xs text-gray-500">
+                        <p className={`text-xs ${((p.isWeighted ? (p.stockKg || 0) : (p.stock || 0)) <= 0) ? 'text-red-500 font-bold' : 'text-gray-500'}`}>
                           {p.isWeighted ? `Weight: ${p.stockKg} KG` : `Stock: ${p.stock}`} | {CURRENCY} {p.price}
                         </p>
                         {p.isWeighted ? (
@@ -2175,64 +2231,60 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
         </TabsContent>
 
         <TabsContent value="reports" className="pt-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
              <Card className="border-none shadow-sm bg-gradient-to-br from-green-50 to-emerald-50">
                 <CardHeader className="pb-2">
-                   <CardDescription className="text-green-700 font-bold uppercase tracking-widest text-[10px]">Total Inventory Value</CardDescription>
-                   <CardTitle className="text-2xl text-green-900">{CURRENCY} {products.reduce((acc, p) => acc + (p.price * p.stock), 0).toLocaleString()}</CardTitle>
+                   <CardDescription className="text-green-700 font-bold uppercase tracking-widest text-[10px]">Inventory Value</CardDescription>
+                   <CardTitle className="text-xl text-green-900">{CURRENCY} {products.reduce((acc, p) => acc + (p.price * (p.isWeighted ? (p.stockKg || 0) * 4 : (p.stock || 0))), 0).toLocaleString()}</CardTitle>
                 </CardHeader>
-                <CardContent>
-                   <div className="text-xs text-green-600 font-medium">Retail value of all items in stock</div>
-                </CardContent>
              </Card>
 
              <Card className="border-none shadow-sm bg-gradient-to-br from-blue-50 to-indigo-50">
                 <CardHeader className="pb-2">
-                   <CardDescription className="text-blue-700 font-bold uppercase tracking-widest text-[10px]">Total Potential Profit</CardDescription>
-                   <CardTitle className="text-2xl text-blue-900">
-                      {CURRENCY} {products.reduce((acc, p) => acc + ((p.price - (p.costPrice || 0)) * p.stock), 0).toLocaleString()}
-                   </CardTitle>
+                   <CardDescription className="text-blue-700 font-bold uppercase tracking-widest text-[10px]">Active Orders</CardDescription>
+                   <CardTitle className="text-xl text-blue-900">{orders.filter(o => o.status !== 'delivered').length}</CardTitle>
                 </CardHeader>
-                <CardContent>
-                   <div className="text-xs text-blue-600 font-medium italic">Based on full stock liquidation</div>
-                </CardContent>
              </Card>
 
              <Card className="border-none shadow-sm bg-gradient-to-br from-orange-50 to-red-50">
                 <CardHeader className="pb-2">
-                   <CardDescription className="text-orange-700 font-bold uppercase tracking-widest text-[10px]">Critical Low Stock</CardDescription>
-                   <CardTitle className="text-2xl text-orange-900">{products.filter(p => p.stock < 5).length} Items</CardTitle>
+                   <CardDescription className="text-orange-700 font-bold uppercase tracking-widest text-[10px]">Empty Items (0)</CardDescription>
+                   <CardTitle className="text-xl text-orange-900">{products.filter(p => p.isWeighted ? (p.stockKg || 0) <= 0 : (p.stock || 0) <= 0).length} Items</CardTitle>
                 </CardHeader>
-                <CardContent>
-                   <div className="text-xs text-orange-600 font-medium">Products with less than 5 units</div>
-                </CardContent>
+             </Card>
+
+             <Card className="border-none shadow-sm bg-gradient-to-br from-purple-50 to-pink-50">
+                <CardHeader className="pb-2">
+                   <CardDescription className="text-purple-700 font-bold uppercase tracking-widest text-[10px]">Best Sellers Sold</CardDescription>
+                   <CardTitle className="text-xl text-purple-900">{products.reduce((acc, p) => acc + (p.soldCount || 0), 0).toLocaleString()}</CardTitle>
+                </CardHeader>
              </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
              <Card className="border-gray-100">
                 <CardHeader>
-                   <CardTitle className="text-lg flex items-center gap-2">
-                      <Package className="text-orange-500" size={20} />
-                      Low Stock Alert List
+                   <CardTitle className="text-sm flex items-center gap-2">
+                      <Package className="text-orange-500" size={16} />
+                      Low Stock Alerts
                    </CardTitle>
-                   <CardDescription>Order immediate restocking for these items.</CardDescription>
                 </CardHeader>
                 <CardContent>
                    <ScrollArea className="h-[300px] pr-4">
-                      <div className="space-y-3">
-                         {products.filter(p => p.stock < 5).length === 0 ? (
-                            <div className="text-center py-10 text-gray-400 italic">No low stock items! Great job.</div>
+                      <div className="space-y-2">
+                         {products.filter(p => p.isWeighted ? (p.stockKg || 0) < 20 : (p.stock || 0) < 40).length === 0 ? (
+                            <div className="text-center py-10 text-gray-400 italic text-xs">All good!</div>
                          ) : (
-                            products.filter(p => p.stock < 5).map(p => (
-                               <div key={p.id} className="flex items-center justify-between p-3 bg-red-50/50 border border-red-100 rounded-xl">
-                                  <div className="flex items-center gap-3">
-                                     <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-xs">
-                                        {p.stock}
-                                     </div>
-                                     <span className="font-bold text-sm text-gray-800">{p.name}</span>
+                            products.filter(p => p.isWeighted ? (p.stockKg || 0) < 20 : (p.stock || 0) < 40)
+                            .sort((a, b) => (a.isWeighted ? (a.stockKg || 0) : (a.stock || 0)) - (b.isWeighted ? (b.stockKg || 0) : (b.stock || 0)))
+                            .map(p => (
+                               <div key={p.id} className="flex items-center justify-between p-2 bg-orange-50/50 border border-orange-100 rounded-lg">
+                                  <div className="flex flex-col">
+                                     <span className="font-bold text-xs text-gray-800">{p.name}</span>
+                                     <span className="text-[10px] text-orange-600 font-bold">
+                                        {p.isWeighted ? `${p.stockKg} KG` : `${p.stock} PC`} left
+                                     </span>
                                   </div>
-                                  <Badge variant="destructive" className="text-[10px]">Restock Needed</Badge>
                                </div>
                             ))
                          )}
@@ -2242,6 +2294,67 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
              </Card>
 
              <Card className="border-gray-100">
+                <CardHeader>
+                   <CardTitle className="text-sm flex items-center gap-2 text-red-600">
+                      <Trash2 size={16} />
+                      Zero Stock (Empty)
+                   </CardTitle>
+                </CardHeader>
+                <CardContent>
+                   <ScrollArea className="h-[300px] pr-4">
+                      <div className="space-y-2">
+                         {products.filter(p => p.isWeighted ? (p.stockKg || 0) <= 0 : (p.stock || 0) <= 0).length === 0 ? (
+                            <div className="text-center py-10 text-gray-400 italic text-xs">No empty products.</div>
+                         ) : (
+                            products.filter(p => p.isWeighted ? (p.stockKg || 0) <= 0 : (p.stock || 0) <= 0).map(p => (
+                               <div key={p.id} className="flex items-center justify-between p-2 bg-red-50/50 border border-red-100 rounded-lg">
+                                  <span className="font-bold text-xs text-red-800">{p.name}</span>
+                                  <Badge className="bg-red-500 text-[9px]">OUT</Badge>
+                               </div>
+                            ))
+                         )}
+                      </div>
+                   </ScrollArea>
+                </CardContent>
+             </Card>
+
+             <Card className="border-gray-100">
+                <CardHeader>
+                   <CardTitle className="text-sm flex items-center gap-2 text-purple-600">
+                      <TrendingUp size={16} />
+                      Best Selling Products
+                   </CardTitle>
+                </CardHeader>
+                <CardContent>
+                   <ScrollArea className="h-[300px] pr-4">
+                      <div className="space-y-2">
+                         {products.filter(p => (p.soldCount || 0) > 0).length === 0 ? (
+                            <div className="text-center py-10 text-gray-400 italic text-xs">No sales yet.</div>
+                         ) : (
+                            products.filter(p => (p.soldCount || 0) > 0)
+                            .sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0))
+                            .slice(0, 10)
+                            .map((p, idx) => (
+                               <div key={p.id} className="flex items-center justify-between p-2 bg-purple-50/50 border border-purple-100 rounded-lg">
+                                  <div className="flex items-center gap-2">
+                                     <div className="w-5 h-5 rounded bg-purple-200 flex items-center justify-center text-purple-700 font-bold text-[10px]">
+                                        #{idx+1}
+                                     </div>
+                                     <span className="font-bold text-xs text-purple-900">{p.name}</span>
+                                  </div>
+                                  <span className="text-[10px] font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                                     {p.soldCount} sold
+                                  </span>
+                               </div>
+                            ))
+                         )}
+                      </div>
+                   </ScrollArea>
+                </CardContent>
+             </Card>
+          </div>
+
+          <Card className="border-gray-100">
                 <CardHeader>
                    <CardTitle className="text-lg flex items-center gap-2">
                       <PieChart className="text-green-500" size={20} />
@@ -2265,7 +2378,6 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                    </ScrollArea>
                 </CardContent>
              </Card>
-          </div>
           
           <Card className="border-gray-100">
              <CardHeader>

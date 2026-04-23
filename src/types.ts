@@ -22,6 +22,8 @@ export interface Product {
   specification?: string;
   stockKg?: number;
   baseWeightGm?: number;
+  weightDisplay?: string;
+  soldCount?: number;
 }
 
 export interface Address {
