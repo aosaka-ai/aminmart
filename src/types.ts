@@ -18,6 +18,8 @@ export interface Product {
   imageUrl?: string;
   isHotDeal?: boolean;
   unit?: string;
+  isWeighted?: boolean;
+  specification?: string;
 }
 
 export interface Address {

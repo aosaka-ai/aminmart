@@ -231,10 +231,6 @@ const Navbar = ({ setView, currentView }: { setView: (v: string) => void, curren
             {profile && (
               <button onClick={() => setView('orders')} className={`text-sm font-medium transition-colors ${currentView === 'orders' ? 'text-green-600' : 'text-gray-600 hover:text-green-600'}`}>My Orders</button>
             )}
-            <button onClick={() => window.location.reload()} className="text-sm font-medium text-gray-400 hover:text-green-600 flex items-center gap-1">
-              <RefreshCw size={14} />
-              Refresh
-            </button>
           </div>
 
           <div className="flex items-center gap-3">
@@ -350,12 +346,22 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
         <h3 className="text-[10px] uppercase tracking-wider font-bold text-green-600 mb-1">{categoryName || 'General'}</h3>
         <p className="font-semibold text-gray-900 line-clamp-1 text-sm">{product.name}</p>
         <p className="text-[11px] text-gray-500 line-clamp-2 h-8 leading-tight">{product.description}</p>
+        {product.specification && (
+          <div className="mt-2 p-1.5 bg-orange-50 rounded-lg border border-orange-100/50">
+            <p className="text-[9px] font-bold text-orange-700 uppercase tracking-tight flex items-center gap-1">
+              <Sparkles size={8} className="text-orange-500" />
+              Note: {product.specification}
+            </p>
+          </div>
+        )}
       </div>
-
+      
       <div className="mt-4 flex items-center justify-between">
         <div>
           <span className="text-base font-bold text-gray-900">{CURRENCY} {product.price.toFixed(2)}</span>
-          {product.unit && <span className="text-[10px] text-gray-400 ml-1">/ {product.unit}</span>}
+          {product.unit && !product.unit.toLowerCase().includes('pc') && (
+            <span className="text-[10px] text-gray-400 ml-1">/ {product.unit}</span>
+          )}
         </div>
 
         {cartItem ? (
@@ -363,7 +369,6 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                // For weighted items, minus reduces by the smallest reasonable unit (0.25) or 1
                 const step = product.isWeighted ? 0.25 : 1;
                 if (cartItem.quantity > step) updateQuantity(cartItem.id, cartItem.quantity - step);
                 else removeItem(cartItem.id);
@@ -390,42 +395,18 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
             </button>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
-            {product.isWeighted ? (
-              <div className="flex bg-gray-50 rounded-lg p-1 border border-gray-100 gap-1">
-                {[
-                  { label: '1/8', val: 0.125 },
-                  { label: '1/4', val: 0.25 },
-                  { label: '1/2', val: 0.5 },
-                  { label: '1kg', val: 1 }
-                ].map(w => (
-                  <button
-                    key={w.label}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addItem(product, w.val);
-                      toast.success(`Added ${w.label} kg of ${product.name}`);
-                    }}
-                    className="px-2 py-1 text-[10px] font-bold text-gray-600 hover:bg-green-600 hover:text-white rounded transition-colors bg-white shadow-sm"
-                  >
-                    {w.label}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <button 
-                disabled={product.stock <= 0}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addItem(product);
-                  toast.success(`${product.name} added to basket`);
-                }}
-                className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center shadow-lg shadow-green-100 transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Plus size={20} />
-              </button>
-            )}
-          </div>
+          <button 
+            disabled={product.stock <= 0}
+            onClick={(e) => {
+              e.stopPropagation();
+              // First click adds 250g for weighted items or 1 unit for others
+              addItem(product, product.isWeighted ? 0.25 : 1);
+              toast.success(`${product.name} added to basket`);
+            }}
+            className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center shadow-lg shadow-green-100 transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus size={20} />
+          </button>
         )}
       </div>
     </motion.div>
@@ -734,7 +715,10 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-semibold text-gray-900">{item.name}</h4>
-                      <p className="text-xs text-gray-500">{CURRENCY} {item.price.toFixed(2)} / {item.unit || 'pc'}</p>
+                      <p className="text-xs text-gray-500">
+                        {CURRENCY} {item.price.toFixed(2)}
+                        {item.unit && !item.unit.toLowerCase().includes('pc') && ` / ${item.unit}`}
+                      </p>
                     </div>
                     <Button variant="ghost" size="icon" className="text-gray-400 hover:text-red-500" onClick={() => removeItem(item.id)}>
                       <Trash2 size={18} />
@@ -944,7 +928,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
   
   // Form states
   const [newCat, setNewCat] = useState<Partial<Category>>({ name: '', slug: '', icon: '', imageUrl: '', order: 0 });
-  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false });
+  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '' });
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: string, name?: string } | null>(null);
@@ -1217,7 +1201,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       toast.success("Product added");
     }
     
-    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false });
+    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '' });
     setEditingProd(null);
   };
 
@@ -1473,14 +1457,22 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                 </SelectContent>
               </Select>
               <Input placeholder="Unit (e.g. kg, pc)" value={newProd.unit} onChange={e => setNewProd({...newProd, unit: e.target.value})} />
-              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
-                <button 
-                  onClick={() => setNewProd({...newProd, isWeighted: !newProd.isWeighted})}
-                  className={`w-10 h-5 rounded-full transition-colors relative ${newProd.isWeighted ? 'bg-green-500' : 'bg-gray-300'}`}
-                >
-                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${newProd.isWeighted ? 'left-6' : 'left-1'}`} />
-                </button>
-                <span className="text-xs font-semibold text-gray-600">Weighted Product (gm/Kg)</span>
+              
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                  <button 
+                    onClick={() => setNewProd({...newProd, isWeighted: !newProd.isWeighted})}
+                    className={`w-10 h-5 rounded-full transition-colors relative ${newProd.isWeighted ? 'bg-green-500' : 'bg-gray-300'}`}
+                  >
+                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${newProd.isWeighted ? 'left-6' : 'left-1'}`} />
+                  </button>
+                  <span className="text-xs font-semibold text-gray-600">Weighted Product (gm/Kg)</span>
+                </div>
+                <Input 
+                  placeholder="Specification (e.g. extra crispy, 2.5kg fixed)" 
+                  value={newProd.specification} 
+                  onChange={e => setNewProd({...newProd, specification: e.target.value})} 
+                />
               </div>
               
               <div className="space-y-2">
@@ -1534,7 +1526,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                 {editingProd && (
                   <Button variant="outline" onClick={() => {
                     setEditingProd(null);
-                    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
+                    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '' });
                   }}>Cancel</Button>
                 )}
               </div>
