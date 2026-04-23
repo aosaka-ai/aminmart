@@ -369,8 +369,7 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                const step = product.isWeighted ? 0.25 : 1;
-                if (cartItem.quantity > step) updateQuantity(cartItem.id, cartItem.quantity - step);
+                if (cartItem.quantity > 1) updateQuantity(cartItem.id, cartItem.quantity - 1);
                 else removeItem(cartItem.id);
               }}
               className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-green-600 shadow-sm"
@@ -379,15 +378,16 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
             </button>
             <span className="text-sm font-bold text-green-700 min-w-[12px] text-center">
               {product.isWeighted 
-                ? (cartItem.quantity < 1 ? `${cartItem.quantity * 1000} gm` : `${cartItem.quantity} kg`)
+                ? (product.isWeighted && (cartItem.quantity * 250) < 1000 
+                    ? `${cartItem.quantity * 250} gm` 
+                    : `${(cartItem.quantity * 250) / 1000} kg`)
                 : cartItem.quantity
               }
             </span>
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                const step = product.isWeighted ? 0.25 : 1;
-                updateQuantity(cartItem.id, cartItem.quantity + step);
+                updateQuantity(cartItem.id, cartItem.quantity + 1);
               }}
               className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-green-600 shadow-sm"
             >
@@ -399,8 +399,7 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
             disabled={product.stock <= 0}
             onClick={(e) => {
               e.stopPropagation();
-              // First click adds 250g for weighted items or 1 unit for others
-              addItem(product, product.isWeighted ? 0.25 : 1);
+              addItem(product); // Standard add 1 unit (which is 250g for weighted)
               toast.success(`${product.name} added to basket`);
             }}
             className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center shadow-lg shadow-green-100 transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -728,8 +727,8 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
                     <div className="flex items-center border border-gray-200 rounded-full px-2 py-1">
                       <button 
                         onClick={() => {
-                          const step = item.isWeighted ? 0.25 : 1;
-                          updateQuantity(item.id, item.quantity - step);
+                          if (item.quantity > 1) updateQuantity(item.id, item.quantity - 1);
+                          else removeItem(item.id);
                         }} 
                         className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-green-600"
                       >
@@ -737,14 +736,13 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
                       </button>
                       <span className="min-w-8 text-center text-sm font-medium">
                         {item.isWeighted 
-                          ? (item.quantity < 1 ? `${item.quantity * 1000} gm` : `${item.quantity} kg`)
+                          ? (item.quantity * 250 < 1000 ? `${item.quantity * 250} gm` : `${(item.quantity * 250) / 1000} kg`)
                           : item.quantity
                         }
                       </span>
                       <button 
                         onClick={() => {
-                          const step = item.isWeighted ? 0.25 : 1;
-                          updateQuantity(item.id, item.quantity + step);
+                          updateQuantity(item.id, item.quantity + 1);
                         }} 
                         className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-green-600"
                       >
