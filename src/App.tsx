@@ -289,23 +289,8 @@ interface CategoryCardProps {
 }
 
 const CategoryCard = ({ category, isSelected, onClick }: CategoryCardProps) => {
-  // Use professional curated images for specific categories if the database imageUrl is generic/missing
-  let displayImageUrl = category.imageUrl || `https://picsum.photos/seed/${category.name}/400/500`;
+  const displayImageUrl = category.imageUrl || `https://picsum.photos/seed/${category.name}/400/500`;
   
-  const name = category.name.toLowerCase();
-  
-  if (name.includes('bakery') || name.includes('bread')) {
-    displayImageUrl = 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=1000';
-  } else if (name.includes('beverage') || name.includes('drink') || name.includes('soda')) {
-    displayImageUrl = 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&q=80&w=1000';
-  } else if (name.includes('fruit') || name.includes('veg')) {
-    displayImageUrl = 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&fit=crop&q=80&w=1000';
-  } else if (name.includes('dairy') || name.includes('milk') || name.includes('cheese')) {
-    displayImageUrl = 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?auto=format&fit=crop&q=80&w=1000';
-  } else if (name.includes('meat') || name.includes('chicken') || name.includes('beef')) {
-    displayImageUrl = 'https://images.unsplash.com/photo-1607623814075-e512199b008d?auto=format&fit=crop&q=80&w=1000';
-  }
-
   return (
     <motion.div
       whileHover={{ y: -4, scale: 1.02 }}
