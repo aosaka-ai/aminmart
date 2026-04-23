@@ -646,7 +646,10 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
       
       // Update stock
       for (const item of items) {
-        if (typeof item.stock === 'number') {
+        if (item.isWeighted && typeof item.stockKg === 'number') {
+          // Each unit in quantity represents 250g (0.25kg)
+          await updateDocument('products', item.id, { stockKg: item.stockKg - (item.quantity * 0.25) });
+        } else if (typeof item.stock === 'number') {
           await updateDocument('products', item.id, { stock: item.stock - item.quantity });
         }
       }
@@ -926,7 +929,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
   
   // Form states
   const [newCat, setNewCat] = useState<Partial<Category>>({ name: '', slug: '', icon: '', imageUrl: '', order: 0 });
-  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '' });
+  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, costPrice: 0, stock: 0, stockKg: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '' });
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: string, name?: string } | null>(null);
@@ -1199,7 +1202,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       toast.success("Product added");
     }
     
-    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '' });
+    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, stockKg: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '' });
     setEditingProd(null);
   };
 
@@ -1433,7 +1436,11 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
               <Input placeholder="Product Name" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})} />
                <Input type="number" placeholder="Retail Price" value={newProd.price || ''} onChange={e => setNewProd({...newProd, price: parseFloat(e.target.value)})} />
                <Input type="number" placeholder="Cost Price (for Profits)" value={newProd.costPrice || ''} onChange={e => setNewProd({...newProd, costPrice: parseFloat(e.target.value)})} />
-               <Input type="number" placeholder="Stock" value={newProd.stock || ''} onChange={e => setNewProd({...newProd, stock: parseInt(e.target.value)})} />
+               {newProd.isWeighted ? (
+                 <Input type="number" placeholder="Total Stock Weight (KG)" value={newProd.stockKg || ''} onChange={e => setNewProd({...newProd, stockKg: parseFloat(e.target.value)})} />
+               ) : (
+                 <Input type="number" placeholder="Stock (Units)" value={newProd.stock || ''} onChange={e => setNewProd({...newProd, stock: parseInt(e.target.value)})} />
+               )}
               <Select value={newProd.categoryId || ""} onValueChange={v => setNewProd({...newProd, categoryId: v})}>
                 <SelectTrigger className="w-full bg-white h-10 border-gray-200 rounded-lg px-3 flex items-center justify-between">
                   <SelectValue placeholder={loadingData ? "Loading..." : "Select Category"}>
@@ -1524,7 +1531,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                 {editingProd && (
                   <Button variant="outline" onClick={() => {
                     setEditingProd(null);
-                    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '' });
+                    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, stockKg: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '' });
                   }}>Cancel</Button>
                 )}
               </div>
@@ -1539,7 +1546,9 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                     {p.imageUrl && <img src={p.imageUrl} className="w-10 h-10 rounded object-cover" alt={p.name} />}
                     <div>
                       <h4 className="font-bold">{p.name}</h4>
-                      <p className="text-xs text-gray-500">Stock: {p.stock} | {CURRENCY} {p.price}</p>
+                      <p className="text-xs text-gray-500">
+                        {p.isWeighted ? `Weight: ${p.stockKg} KG` : `Stock: ${p.stock}`} | {CURRENCY} {p.price}
+                      </p>
                       <Badge variant="outline" className="text-[9px] h-4 mt-1 bg-gray-50">
                         {categories.find(c => c.id === p.categoryId)?.name || 'Unknown Category'}
                       </Badge>

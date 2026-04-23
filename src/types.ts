@@ -20,6 +20,7 @@ export interface Product {
   unit?: string;
   isWeighted?: boolean;
   specification?: string;
+  stockKg?: number;
 }
 
 export interface Address {
