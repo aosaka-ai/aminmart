@@ -363,18 +363,26 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                if (cartItem.quantity > 1) updateQuantity(cartItem.id, cartItem.quantity - 1);
+                // For weighted items, minus reduces by the smallest reasonable unit (0.25) or 1
+                const step = product.isWeighted ? 0.25 : 1;
+                if (cartItem.quantity > step) updateQuantity(cartItem.id, cartItem.quantity - step);
                 else removeItem(cartItem.id);
               }}
               className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-green-600 shadow-sm"
             >
               <Minus size={12} />
             </button>
-            <span className="text-sm font-bold text-green-700 min-w-[12px] text-center">{cartItem.quantity}</span>
+            <span className="text-sm font-bold text-green-700 min-w-[12px] text-center">
+              {product.isWeighted 
+                ? (cartItem.quantity < 1 ? `${cartItem.quantity * 1000} gm` : `${cartItem.quantity} kg`)
+                : cartItem.quantity
+              }
+            </span>
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                updateQuantity(cartItem.id, cartItem.quantity + 1);
+                const step = product.isWeighted ? 0.25 : 1;
+                updateQuantity(cartItem.id, cartItem.quantity + step);
               }}
               className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-green-600 shadow-sm"
             >
@@ -382,17 +390,42 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
             </button>
           </div>
         ) : (
-          <button 
-            disabled={product.stock <= 0}
-            onClick={(e) => {
-              e.stopPropagation();
-              addItem(product);
-              toast.success(`${product.name} added to basket`);
-            }}
-            className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center shadow-lg shadow-green-100 transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus size={20} />
-          </button>
+          <div className="flex flex-col gap-2">
+            {product.isWeighted ? (
+              <div className="flex bg-gray-50 rounded-lg p-1 border border-gray-100 gap-1">
+                {[
+                  { label: '1/8', val: 0.125 },
+                  { label: '1/4', val: 0.25 },
+                  { label: '1/2', val: 0.5 },
+                  { label: '1kg', val: 1 }
+                ].map(w => (
+                  <button
+                    key={w.label}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addItem(product, w.val);
+                      toast.success(`Added ${w.label} kg of ${product.name}`);
+                    }}
+                    className="px-2 py-1 text-[10px] font-bold text-gray-600 hover:bg-green-600 hover:text-white rounded transition-colors bg-white shadow-sm"
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <button 
+                disabled={product.stock <= 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  addItem(product);
+                  toast.success(`${product.name} added to basket`);
+                }}
+                className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center shadow-lg shadow-green-100 transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus size={20} />
+              </button>
+            )}
+          </div>
         )}
       </div>
     </motion.div>
@@ -709,9 +742,30 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex items-center border border-gray-200 rounded-full px-2 py-1">
-                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-green-600">-</button>
-                      <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-green-600">+</button>
+                      <button 
+                        onClick={() => {
+                          const step = item.isWeighted ? 0.25 : 1;
+                          updateQuantity(item.id, item.quantity - step);
+                        }} 
+                        className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-green-600"
+                      >
+                        -
+                      </button>
+                      <span className="min-w-8 text-center text-sm font-medium">
+                        {item.isWeighted 
+                          ? (item.quantity < 1 ? `${item.quantity * 1000} gm` : `${item.quantity} kg`)
+                          : item.quantity
+                        }
+                      </span>
+                      <button 
+                        onClick={() => {
+                          const step = item.isWeighted ? 0.25 : 1;
+                          updateQuantity(item.id, item.quantity + step);
+                        }} 
+                        className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-green-600"
+                      >
+                        +
+                      </button>
                     </div>
                     <span className="font-bold text-gray-900">{CURRENCY} {(item.price * item.quantity).toFixed(2)}</span>
                   </div>
@@ -890,7 +944,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
   
   // Form states
   const [newCat, setNewCat] = useState<Partial<Category>>({ name: '', slug: '', icon: '', imageUrl: '', order: 0 });
-  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
+  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false });
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: string, name?: string } | null>(null);
@@ -1163,7 +1217,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       toast.success("Product added");
     }
     
-    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
+    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false });
     setEditingProd(null);
   };
 
@@ -1419,6 +1473,15 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                 </SelectContent>
               </Select>
               <Input placeholder="Unit (e.g. kg, pc)" value={newProd.unit} onChange={e => setNewProd({...newProd, unit: e.target.value})} />
+              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                <button 
+                  onClick={() => setNewProd({...newProd, isWeighted: !newProd.isWeighted})}
+                  className={`w-10 h-5 rounded-full transition-colors relative ${newProd.isWeighted ? 'bg-green-500' : 'bg-gray-300'}`}
+                >
+                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${newProd.isWeighted ? 'left-6' : 'left-1'}`} />
+                </button>
+                <span className="text-xs font-semibold text-gray-600">Weighted Product (gm/Kg)</span>
+              </div>
               
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
