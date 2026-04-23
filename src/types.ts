@@ -4,6 +4,7 @@ export interface Category {
   slug: string;
   icon?: string;
   imageUrl?: string;
+  order?: number;
 }
 
 export interface Product {

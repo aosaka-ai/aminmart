@@ -423,7 +423,7 @@ const HomeView = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const unsubCat = onSnapshot(query(collection(db, 'categories'), orderBy('name')), (snap) => {
+    const unsubCat = onSnapshot(query(collection(db, 'categories'), orderBy('order', 'asc')), (snap) => {
       setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
     });
     const unsubProd = onSnapshot(collection(db, 'products'), (snap) => {
@@ -904,7 +904,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   
   // Form states
-  const [newCat, setNewCat] = useState<Partial<Category>>({ name: '', slug: '', icon: '', imageUrl: '' });
+  const [newCat, setNewCat] = useState<Partial<Category>>({ name: '', slug: '', icon: '', imageUrl: '', order: 0 });
   const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, costPrice: 0, stock: 0, categoryId: '', unit: 'pc', imageUrl: '' });
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [editingProd, setEditingProd] = useState<Product | null>(null);
@@ -932,7 +932,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
   });
 
   useEffect(() => {
-    const unsubCat = onSnapshot(collection(db, 'categories'), (snap) => {
+    const unsubCat = onSnapshot(query(collection(db, 'categories'), orderBy('order', 'asc')), (snap) => {
       setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
       setLoadingData(false);
     }, (err) => {
@@ -1087,8 +1087,35 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
         throw new Error("The AI model did not return image data. Try a more descriptive name.");
       }
     } catch (error: any) {
-      console.error("[AI] Error:", error);
-      toast.error(`AI Generation failed: ${error.message || 'Unknown error'}`, { id: toastId });
+      console.error("[AI] Generation failed:", error);
+      
+      const isQuotaError = 
+        error.message?.includes("429") || 
+        error.message?.includes("quota") || 
+        error.message?.includes("Quota exceeded") ||
+        error.status === "RESOURCE_EXHAUSTED";
+
+      if (isQuotaError) {
+        toast.error(
+          <div className="space-y-2">
+            <p className="font-bold">AI Quota Exceeded (429)</p>
+            <p className="text-[10px]">You have reached the free limit for AI generation. Please wait a few minutes or use a paid Gemini API key.</p>
+            <p className="text-[10px] font-bold">Using a high-quality placeholder for now...</p>
+          </div>,
+          { id: toastId, duration: 6000 }
+        );
+      } else {
+        toast.error(`AI Generation failed: ${error.message || "Unknown error"}`, { id: toastId });
+      }
+
+      // FALLBACK: Use a high-quality placeholder if AI fails
+      const fallbackUrl = `https://picsum.photos/seed/${encodeURIComponent(name)}/800/800`;
+      if (type === 'category') setNewCat(prev => ({ ...prev, imageUrl: fallbackUrl }));
+      else setNewProd(prev => ({ ...prev, imageUrl: fallbackUrl }));
+      
+      if (isQuotaError) {
+        toast.success("Fallback image applied!", { duration: 2000 });
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -1136,7 +1163,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       toast.success("Category added");
     }
     
-    setNewCat({ name: '', slug: '', icon: '', imageUrl: '' });
+    setNewCat({ name: '', slug: '', icon: '', imageUrl: '', order: 0 });
     setEditingCat(null);
   };
 
@@ -1157,7 +1184,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
 
   const startEditCategory = (cat: Category) => {
     setEditingCat(cat);
-    setNewCat({ name: cat.name, slug: cat.slug, icon: cat.icon, imageUrl: cat.imageUrl });
+    setNewCat({ name: cat.name, slug: cat.slug, icon: cat.icon, imageUrl: cat.imageUrl, order: cat.order || 0 });
   };
 
   const startEditProduct = (prod: Product) => {
@@ -1502,6 +1529,11 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                   <Input placeholder="e.g. Dairy, Fruits, Snacks" value={newCat.name} onChange={e => setNewCat({...newCat, name: e.target.value})} />
                 </div>
                 
+                <div className="flex-1 space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Display Order</label>
+                  <Input type="number" placeholder="0" value={newCat.order ?? 0} onChange={e => setNewCat({...newCat, order: parseInt(e.target.value) || 0})} />
+                </div>
+                
                 <div className="flex flex-col gap-2 min-w-[300px]">
                   <div className="flex items-center gap-2">
                     <Input 
@@ -1563,7 +1595,10 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                 <CardContent className="p-4 flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     {c.imageUrl && <img src={c.imageUrl} className="w-8 h-8 rounded object-cover" alt={c.name} />}
-                    <span className="font-medium">{c.name}</span>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{c.name}</span>
+                      <span className="text-[10px] text-gray-400">Order: {c.order ?? 0}</span>
+                    </div>
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={() => startEditCategory(c)}><Edit2 size={16} /></Button>
