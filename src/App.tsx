@@ -359,8 +359,12 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
       <div className="mt-4 flex items-center justify-between">
         <div>
           <span className="text-base font-bold text-gray-900">{CURRENCY} {product.price.toFixed(2)}</span>
-          {product.unit && !product.unit.toLowerCase().includes('pc') && (
-            <span className="text-[10px] text-gray-400 ml-1">/ {product.unit}</span>
+          {product.isWeighted ? (
+            <span className="text-[10px] text-gray-400 ml-1">/ 250 gm</span>
+          ) : (
+            product.unit && !product.unit.toLowerCase().includes('pc') && (
+              <span className="text-[10px] text-gray-400 ml-1">/ {product.unit}</span>
+            )
           )}
         </div>
 
@@ -719,7 +723,7 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
                       <h4 className="font-semibold text-gray-900">{item.name}</h4>
                       <p className="text-xs text-gray-500">
                         {CURRENCY} {item.price.toFixed(2)}
-                        {item.unit && !item.unit.toLowerCase().includes('pc') && ` / ${item.unit}`}
+                        {item.isWeighted ? ' / 250 gm' : (item.unit && !item.unit.toLowerCase().includes('pc') && ` / ${item.unit}`)}
                       </p>
                     </div>
                     <Button variant="ghost" size="icon" className="text-gray-400 hover:text-red-500" onClick={() => removeItem(item.id)}>
