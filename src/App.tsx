@@ -360,7 +360,7 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
         <div>
           <span className="text-base font-bold text-gray-900">{CURRENCY} {product.price.toFixed(2)}</span>
           {product.isWeighted ? (
-            <span className="text-[10px] text-gray-400 ml-1">/ 250 gm</span>
+            <span className="text-[10px] text-gray-400 ml-1">/ {product.baseWeightGm || 250} gm</span>
           ) : (
             product.unit && !product.unit.toLowerCase().includes('pc') && (
               <span className="text-[10px] text-gray-400 ml-1">/ {product.unit}</span>
@@ -382,9 +382,9 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
             </button>
             <span className="text-sm font-bold text-green-700 min-w-[12px] text-center">
               {product.isWeighted 
-                ? (product.isWeighted && (cartItem.quantity * 250) < 1000 
-                    ? `${cartItem.quantity * 250} gm` 
-                    : `${(cartItem.quantity * 250) / 1000} kg`)
+                ? (product.isWeighted && (cartItem.quantity * (product.baseWeightGm || 250)) < 1000 
+                    ? `${cartItem.quantity * (product.baseWeightGm || 250)} gm` 
+                    : `${(cartItem.quantity * (product.baseWeightGm || 250)) / 1000} kg`)
                 : cartItem.quantity
               }
             </span>
@@ -651,8 +651,9 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
       // Update stock
       for (const item of items) {
         if (item.isWeighted && typeof item.stockKg === 'number') {
-          // Each unit in quantity represents 250g (0.25kg)
-          await updateDocument('products', item.id, { stockKg: item.stockKg - (item.quantity * 0.25) });
+          // Each unit in quantity represents baseWeightGm (default 250g)
+          const weightPerUnitKg = (item.baseWeightGm || 250) / 1000;
+          await updateDocument('products', item.id, { stockKg: item.stockKg - (item.quantity * weightPerUnitKg) });
         } else if (typeof item.stock === 'number') {
           await updateDocument('products', item.id, { stock: item.stock - item.quantity });
         }
@@ -723,7 +724,7 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
                       <h4 className="font-semibold text-gray-900">{item.name}</h4>
                       <p className="text-xs text-gray-500">
                         {CURRENCY} {item.price.toFixed(2)}
-                        {item.isWeighted ? ' / 250 gm' : (item.unit && !item.unit.toLowerCase().includes('pc') && ` / ${item.unit}`)}
+                        {item.isWeighted ? ` / ${item.baseWeightGm || 250} gm` : (item.unit && !item.unit.toLowerCase().includes('pc') && ` / ${item.unit}`)}
                       </p>
                     </div>
                     <Button variant="ghost" size="icon" className="text-gray-400 hover:text-red-500" onClick={() => removeItem(item.id)}>
@@ -743,7 +744,7 @@ const CartView = ({ setView }: { setView: (v: string) => void }) => {
                       </button>
                       <span className="min-w-8 text-center text-sm font-medium">
                         {item.isWeighted 
-                          ? (item.quantity * 250 < 1000 ? `${item.quantity * 250} gm` : `${(item.quantity * 250) / 1000} kg`)
+                          ? (item.quantity * (item.baseWeightGm || 250) < 1000 ? `${item.quantity * (item.baseWeightGm || 250)} gm` : `${(item.quantity * (item.baseWeightGm || 250)) / 1000} kg`)
                           : item.quantity
                         }
                       </span>
@@ -933,7 +934,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
   
   // Form states
   const [newCat, setNewCat] = useState<Partial<Category>>({ name: '', slug: '', icon: '', imageUrl: '', order: 0 });
-  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, costPrice: 0, stock: 0, stockKg: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '' });
+  const [newProd, setNewProd] = useState<Partial<Product>>({ name: '', price: 0, costPrice: 0, stock: 0, stockKg: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '', baseWeightGm: 250 });
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: string, name?: string } | null>(null);
@@ -1206,7 +1207,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       toast.success("Product added");
     }
     
-    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, stockKg: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '' });
+    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, stockKg: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '', baseWeightGm: 250 });
     setEditingProd(null);
   };
 
@@ -1217,7 +1218,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
 
   const startEditProduct = (prod: Product) => {
     setEditingProd(prod);
-    setNewProd({ ...prod });
+    setNewProd({ ...prod, baseWeightGm: prod.baseWeightGm || 250 });
   };
 
   const updateOrderStatus = async (orderId: string, status: string) => {
@@ -1482,6 +1483,14 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                   value={newProd.specification} 
                   onChange={e => setNewProd({...newProd, specification: e.target.value})} 
                 />
+                {newProd.isWeighted && (
+                  <Input 
+                    type="number"
+                    placeholder="Base Weight (gm) - default 250" 
+                    value={newProd.baseWeightGm || ''} 
+                    onChange={e => setNewProd({...newProd, baseWeightGm: parseInt(e.target.value)})} 
+                  />
+                )}
               </div>
               
               <div className="space-y-2">
@@ -1535,7 +1544,7 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                 {editingProd && (
                   <Button variant="outline" onClick={() => {
                     setEditingProd(null);
-                    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, stockKg: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '' });
+                    setNewProd({ name: '', price: 0, costPrice: 0, stock: 0, stockKg: 0, categoryId: '', unit: 'pc', imageUrl: '', isWeighted: false, specification: '', baseWeightGm: 250 });
                   }}>Cancel</Button>
                 )}
               </div>

@@ -21,6 +21,7 @@ export interface Product {
   isWeighted?: boolean;
   specification?: string;
   stockKg?: number;
+  baseWeightGm?: number;
 }
 
 export interface Address {
