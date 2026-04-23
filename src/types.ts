@@ -24,6 +24,7 @@ export interface Product {
   baseWeightGm?: number;
   weightDisplay?: string;
   soldCount?: number;
+  companyName?: string;
 }
 
 export interface Address {

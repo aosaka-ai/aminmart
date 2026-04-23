@@ -160,9 +160,23 @@ export async function uploadFile(file: File, path: string): Promise<string> {
     }
 
     const data = await response.json();
-    return data.secure_url; // Returns the optimized HTTPS version of the link
+    return data.secure_url; 
   } catch (error: any) {
     console.error('Error uploading to Cloudinary:', error);
     throw error;
+  }
+}
+
+export async function deleteCloudinaryImage(imageUrl: string) {
+  try {
+    const response = await fetch('/api/delete-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrl })
+    });
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error("Failed to delete image:", error);
   }
 }

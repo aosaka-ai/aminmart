@@ -28,6 +28,9 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
+  Building2,
+  Info,
+  HelpCircle,
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from 'motion/react';
@@ -61,7 +64,7 @@ import { toast } from 'sonner';
 import { collection, onSnapshot, query, orderBy, Timestamp, where, increment } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { Category, Product, Order, Address, UserProfile } from './types';
-import { createDocument, updateDocument, removeDocument, uploadFile } from './lib/firebase-utils';
+import { createDocument, updateDocument, removeDocument, uploadFile, deleteCloudinaryImage } from './lib/firebase-utils';
 import { Camera, Edit2, Loader2, RefreshCw } from 'lucide-react';
 
 const CURRENCY = 'EGP';
@@ -190,7 +193,7 @@ const AminMartLogo = ({ className = "w-12 h-12", showBox = true }: { className?:
   </div>
 );
 
-const Navbar = ({ setView, currentView }: { setView: (v: string) => void, currentView: string }) => {
+const Navbar = ({ setView, currentView, searchQuery, setSearchQuery }: { setView: (v: string) => void, currentView: string, searchQuery: string, setSearchQuery: (s: string) => void }) => {
   const { profile, logout, refreshUser } = useAuth();
   const { items } = useCart();
   const [logoTaps, setLogoTaps] = useState(0);
@@ -224,6 +227,15 @@ const Navbar = ({ setView, currentView }: { setView: (v: string) => void, curren
           </div>
 
           <div className="hidden md:flex items-center gap-6">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-green-500 transition-colors" size={16} />
+              <Input 
+                placeholder="Search products..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-10 w-64 rounded-full border-gray-100 bg-gray-50 focus:bg-white transition-all text-sm"
+              />
+            </div>
             <button onClick={() => setView('home')} className={`text-sm font-medium transition-colors ${currentView === 'home' ? 'text-green-600' : 'text-gray-600 hover:text-green-600'}`}>Home</button>
             {profile?.role === 'admin' && (
               <button onClick={() => setView('admin')} className={`text-sm font-medium transition-colors ${currentView === 'admin' ? 'text-green-600' : 'text-gray-600 hover:text-green-600'}`}>Admin</button>
@@ -311,7 +323,7 @@ const CategoryCard = ({ category, isSelected, onClick }: CategoryCardProps) => {
   );
 };
 
-const ProductCard = ({ product, categoryName }: { product: Product, categoryName?: string }) => {
+const ProductCard = ({ product, categoryName, onClickImage }: { product: Product, categoryName?: string, onClickImage?: () => void }) => {
   const { addItem, items, updateQuantity, removeItem } = useCart();
   const cartItem = items.find(i => i.id === product.id);
   
@@ -323,7 +335,10 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
       whileHover={{ y: -4 }}
       className="group bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-xl hover:shadow-gray-100 transition-all duration-300 relative"
     >
-      <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-50 mb-4">
+      <div 
+        className="relative aspect-square rounded-xl overflow-hidden bg-gray-50 mb-4 cursor-zoom-in"
+        onClick={() => onClickImage?.()}
+      >
         <img 
           src={product.imageUrl || `https://picsum.photos/seed/${product.name}/400/400`} 
           alt={product.name}
@@ -433,11 +448,10 @@ const ProductCard = ({ product, categoryName }: { product: Product, categoryName
 
 // --- Views ---
 
-const HomeView = () => {
+const HomeView = ({ searchQuery, setSearchQuery, onProductClick }: { searchQuery: string, setSearchQuery: (s: string) => void, onProductClick: (p: Product) => void }) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const unsubCat = onSnapshot(query(collection(db, 'categories'), orderBy('order', 'asc')), (snap) => {
@@ -550,6 +564,7 @@ const HomeView = () => {
                   <ProductCard 
                     product={product} 
                     categoryName={categories.find(c => c.id === product.categoryId)?.name} 
+                    onClickImage={() => onProductClick(product)}
                   />
                 </motion.div>
               ))}
@@ -993,8 +1008,10 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
     specification: '', 
     baseWeightGm: 250, 
     weightDisplay: '',
-    soldCount: 0 
+    soldCount: 0,
+    companyName: '' 
   });
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: string, name?: string } | null>(null);
@@ -1217,8 +1234,12 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
     
     try {
       if (type === 'product') {
+        const p = products.find(prod => prod.id === id);
+        if (p?.imageUrl) await deleteCloudinaryImage(p.imageUrl);
         await removeDocument('products', id);
       } else if (type === 'category') {
+        const c = categories.find(cat => cat.id === id);
+        if (c?.imageUrl) await deleteCloudinaryImage(c.imageUrl);
         await removeDocument('categories', id);
       } else if (type === 'user') {
         await removeDocument('users', id);
@@ -1280,7 +1301,8 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
       specification: '', 
       baseWeightGm: 250,
       weightDisplay: '',
-      soldCount: 0
+      soldCount: 0,
+      companyName: ''
     });
     setEditingProd(null);
   };
@@ -1292,7 +1314,13 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
 
   const startEditProduct = (prod: Product) => {
     setEditingProd(prod);
-    setNewProd({ ...prod, baseWeightGm: prod.baseWeightGm || 250, weightDisplay: prod.weightDisplay || '', soldCount: prod.soldCount || 0 });
+    setNewProd({ 
+      ...prod, 
+      baseWeightGm: prod.baseWeightGm || 250, 
+      weightDisplay: prod.weightDisplay || '', 
+      soldCount: prod.soldCount || 0,
+      companyName: prod.companyName || ''
+    });
   };
 
   const updateOrderStatus = async (orderId: string, status: string) => {
@@ -1512,10 +1540,11 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
               <CardTitle>{editingProd ? 'Edit Product' : 'Add New Product'}</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex flex-col gap-2">
-                <Input placeholder="Product Name" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})} />
-                <Input placeholder="Size/Weight Display (e.g. 165g, 750ml)" value={newProd.weightDisplay} onChange={e => setNewProd({...newProd, weightDisplay: e.target.value})} />
-              </div>
+                <div className="flex flex-col gap-2">
+                  <Input placeholder="Product Name" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})} />
+                  <Input placeholder="Company / Brand Name" value={newProd.companyName} onChange={e => setNewProd({...newProd, companyName: e.target.value})} />
+                  <Input placeholder="Size/Weight Display (e.g. 165g, 750ml)" value={newProd.weightDisplay} onChange={e => setNewProd({...newProd, weightDisplay: e.target.value})} />
+                </div>
                <Input type="number" placeholder="Retail Price" value={newProd.price || ''} onChange={e => setNewProd({...newProd, price: parseFloat(e.target.value)})} />
                <Input type="number" placeholder="Cost Price (for Profits)" value={newProd.costPrice || ''} onChange={e => setNewProd({...newProd, costPrice: parseFloat(e.target.value)})} />
                {newProd.isWeighted ? (
@@ -1634,7 +1663,8 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
                       specification: '', 
                       baseWeightGm: 250,
                       weightDisplay: '',
-                      soldCount: 0
+                      soldCount: 0,
+                      companyName: ''
                     });
                   }}>Cancel</Button>
                 )}
@@ -1642,49 +1672,107 @@ const AdminView = ({ setView }: { setView: (v: string) => void }) => {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {products.map(p => (
-              <Card key={p.id} className="border-gray-100">
-                <CardContent className="p-4 flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    {p.imageUrl && <img src={p.imageUrl} className="w-10 h-10 rounded object-cover" alt={p.name} />}
-                    <div>
-                      <h4 className="font-bold flex items-center gap-2">
-                        {p.name} {p.weightDisplay && <span className="text-[10px] text-gray-400 font-normal">({p.weightDisplay})</span>}
-                        {(p.isWeighted ? (p.stockKg || 0) <= 0 : (p.stock || 0) <= 0) && (
-                          <Badge variant="destructive" className="text-[8px] h-3 px-1 uppercase leading-none">Empty</Badge>
-                        )}
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        <p className={`text-xs ${((p.isWeighted ? (p.stockKg || 0) : (p.stock || 0)) <= 0) ? 'text-red-500 font-bold' : 'text-gray-500'}`}>
-                          {p.isWeighted ? `Weight: ${p.stockKg} KG` : `Stock: ${p.stock}`} | {CURRENCY} {p.price}
-                        </p>
-                        {p.isWeighted ? (
-                          p.stockKg !== undefined && p.stockKg < 20 && (
-                            <Badge variant="outline" className="text-[9px] h-4 bg-orange-50 text-orange-600 border-orange-200">
-                              {'Low Stock (< 20kg)'}
-                            </Badge>
-                          )
-                        ) : (
-                          p.stock !== undefined && p.stock < 40 && (
-                            <Badge variant="outline" className="text-[9px] h-4 bg-orange-50 text-orange-600 border-orange-200">
-                              {'Low Stock (< 40pc)'}
-                            </Badge>
-                          )
-                        )}
-                      </div>
-                      <Badge variant="outline" className="text-[9px] h-4 mt-1 bg-gray-50">
-                        {categories.find(c => c.id === p.categoryId)?.name || 'Unknown Category'}
-                      </Badge>
+          <Card className="border-gray-100 shadow-sm mb-8">
+            <CardContent className="p-4 flex items-center gap-4">
+              <Search className="text-gray-400" size={20} />
+              <Input 
+                placeholder="Quick search inventory by name or company..." 
+                value={adminSearchQuery} 
+                onChange={e => setAdminSearchQuery(e.target.value)}
+                className="border-none bg-transparent h-10 focus-visible:ring-0 text-lg font-medium"
+              />
+            </CardContent>
+          </Card>
+
+          <div className="space-y-12 pb-20">
+            {categories.map(cat => {
+              const catProds = products.filter(p => 
+                p.categoryId === cat.id && 
+                (p.name.toLowerCase().includes(adminSearchQuery.toLowerCase()) || 
+                 (p.companyName || '').toLowerCase().includes(adminSearchQuery.toLowerCase()))
+              );
+              if (catProds.length === 0) return null;
+
+              return (
+                <div key={cat.id} className="space-y-4">
+                  <div className="flex items-center gap-3 border-b border-gray-100 pb-2">
+                    <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center text-green-600">
+                      <Package size={18} />
                     </div>
+                    <h3 className="text-lg font-bold text-gray-800 tracking-tight">{cat.name}</h3>
+                    <Badge variant="outline" className="text-[10px] font-bold text-gray-400 bg-gray-50/50">
+                      {catProds.length} Items
+                    </Badge>
                   </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => startEditProduct(p)}><Edit2 size={16} /></Button>
-                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => setDeleteConfirm({ id: p.id, type: 'product', name: p.name })}><Trash2 size={16} /></Button>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {catProds.map(p => (
+                      <Card key={p.id} className="border-gray-100 hover:shadow-md transition-shadow">
+                        <CardContent className="p-4 flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                            {p.imageUrl && <img src={p.imageUrl} className="w-10 h-10 rounded object-cover shadow-sm" alt={p.name} />}
+                            <div className="overflow-hidden">
+                              <h4 className="font-bold flex items-center gap-2 truncate">
+                                {p.name} {p.weightDisplay && <span className="text-[10px] text-gray-400 font-normal">({p.weightDisplay})</span>}
+                                {(p.isWeighted ? (p.stockKg || 0) <= 0 : (p.stock || 0) <= 0) && (
+                                  <Badge variant="destructive" className="text-[8px] h-3 px-1 uppercase leading-none">Empty</Badge>
+                                )}
+                              </h4>
+                              {p.companyName && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{p.companyName}</p>}
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <p className={`text-[11px] ${((p.isWeighted ? (p.stockKg || 0) : (p.stock || 0)) <= 0) ? 'text-red-500 font-bold' : 'text-gray-500'}`}>
+                                  {p.isWeighted ? `${p.stockKg} KG` : `${p.stock} Units`} | {CURRENCY} {p.price.toFixed(2)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEditProduct(p)}><Edit2 size={14} /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => setDeleteConfirm({ id: p.id, type: 'product', name: p.name })}><Trash2 size={14} /></Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              );
+            })}
+
+            {/* Unassigned Products */}
+            {(products.filter(p => !p.categoryId && (p.name.toLowerCase().includes(adminSearchQuery.toLowerCase()) || (p.companyName || '').toLowerCase().includes(adminSearchQuery.toLowerCase()))).length > 0) && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 border-b border-gray-100 pb-2">
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
+                    <HelpCircle size={18} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-800 tracking-tight">Unassigned / Deleted Category</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {products.filter(p => !p.categoryId && (p.name.toLowerCase().includes(adminSearchQuery.toLowerCase()) || (p.companyName || '').toLowerCase().includes(adminSearchQuery.toLowerCase()))).map(p => (
+                    <Card key={p.id} className="border-gray-100">
+                      <CardContent className="p-4 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          {p.imageUrl && <img src={p.imageUrl} className="w-10 h-10 rounded object-cover shadow-sm" alt={p.name} />}
+                          <div className="overflow-hidden">
+                            <h4 className="font-bold flex items-center gap-2 truncate">
+                               {p.name} {p.weightDisplay && <span className="text-[10px] text-gray-400 font-normal">({p.weightDisplay})</span>}
+                            </h4>
+                            {p.companyName && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{p.companyName}</p>}
+                            <p className="text-[11px] text-gray-500">
+                               {p.isWeighted ? `${p.stockKg} KG` : `${p.stock} Units`} | {CURRENCY} {p.price.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEditProduct(p)}><Edit2 size={14} /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => setDeleteConfirm({ id: p.id, type: 'product', name: p.name })}><Trash2 size={14} /></Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
 
@@ -3155,6 +3243,8 @@ const OrdersView = () => {
 export default function App() {
   console.log("App.tsx: Rendering App component, loading:", useAuth().loading);
   const [view, setView] = useState('home');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProductDetails, setSelectedProductDetails] = useState<Product | null>(null);
   const { profile, loading } = useAuth();
 
   // Redirect to verification if not verified (Only for customers)
@@ -3180,7 +3270,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50/50 font-sans text-gray-900">
-      <Navbar setView={setView} currentView={view} />
+      <Navbar setView={setView} currentView={view} searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
       
       <main className="pb-20">
         <AnimatePresence mode="wait">
@@ -3191,7 +3281,7 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.25, ease: "easeOut" }}
           >
-            {view === 'home' && <HomeView />}
+            {view === 'home' && <HomeView searchQuery={searchQuery} setSearchQuery={setSearchQuery} onProductClick={(p) => setSelectedProductDetails(p)} />}
             {view === 'cart' && <CartView setView={setView} />}
             {view === 'admin' && <AdminView setView={setView} />}
             {view === 'orders' && <OrdersView />}
@@ -3216,6 +3306,71 @@ export default function App() {
       </footer>
 
       <Toaster position="bottom-right" />
+
+      {/* Product Details Dialog */}
+      <Dialog open={!!selectedProductDetails} onOpenChange={() => setSelectedProductDetails(null)}>
+        <DialogContent className="max-w-2xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+          {selectedProductDetails && (
+            <div className="flex flex-col md:flex-row h-full">
+              <div className="w-full md:w-1/2 aspect-square md:aspect-auto overflow-hidden bg-gray-50">
+                <img 
+                  src={selectedProductDetails.imageUrl || `https://picsum.photos/seed/${selectedProductDetails.name}/800/800`} 
+                  alt={selectedProductDetails.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="w-full md:w-1/2 p-8 space-y-6 bg-white flex flex-col justify-center">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 py-1">
+                      {selectedProductDetails.unit || 'Product'}
+                    </Badge>
+                    {selectedProductDetails.companyName && (
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                        <Building2 size={12} />
+                        {selectedProductDetails.companyName}
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-3xl font-bold text-gray-900 leading-tight">
+                    {selectedProductDetails.name}
+                    {selectedProductDetails.weightDisplay && (
+                      <span className="text-xl text-gray-400 font-medium ml-2">({selectedProductDetails.weightDisplay})</span>
+                    )}
+                  </h2>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="py-4 border-y border-gray-100">
+                    <p className="text-gray-600 leading-relaxed text-sm">
+                      {selectedProductDetails.description || 'No description available for this item.'}
+                    </p>
+                  </div>
+
+                  {selectedProductDetails.specification && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                        <Info size={12} className="text-green-600" />
+                        Key Specifications
+                      </p>
+                      <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                        <p className="text-xs text-gray-700 italic">"{selectedProductDetails.specification}"</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2">
+                   <div className="flex flex-col gap-1">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Retail Price</p>
+                      <p className="text-3xl font-black text-green-600">{CURRENCY} {selectedProductDetails.price.toFixed(2)}</p>
+                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
